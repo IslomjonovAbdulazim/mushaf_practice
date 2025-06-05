@@ -55,5 +55,8 @@ flutter:
     - family: Digital
       fonts:
         - asset: assets/fonts/DigitalKhattV2.otf
+    - family: Nas
+      fonts:
+        - asset: assets/fonts/KFGQPCNastaleeq-Regular.ttf
 
 

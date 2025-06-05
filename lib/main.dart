@@ -16,7 +16,7 @@ class MushafApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.green,
       ),
-      home: MushafPage(pageNumber: 604),
+      home: MushafPage(pageNumber: 2),
     );
   }
 }
@@ -94,18 +94,17 @@ class _MushafPageState extends State<MushafPage> {
     // Handle different line types
     if (line.lineType == 'surah_name') {
       return Container(
-        padding: EdgeInsets.symmetric(vertical: 12),
-        child: Center(
-          child: Text(
-            "57455",
-            style: TextStyle(
-              fontFamily: 'SurahNames2',
-              fontSize: 24,
-              color: Colors.green.shade700,
-              fontWeight: FontWeight.bold,
-            ),
-            textDirection: TextDirection.rtl,
-          ),
+        padding: EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.green.shade50,
+          border: Border(bottom: BorderSide(color: Colors.green.shade200)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('صفحة ${widget.pageNumber}', style: TextStyle(fontSize: 16)),
+            Text('Page ${widget.pageNumber}', style: TextStyle(fontSize: 16)),
+          ],
         ),
       );
     }
@@ -117,9 +116,10 @@ class _MushafPageState extends State<MushafPage> {
           child: Text(
             'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ',
             style: TextStyle(
-              fontFamily: 'Uthman',
-              fontSize: 18,
+              fontFamily: 'Me',
+              fontSize: 16,
               color: Colors.black87,
+              height: 2,
             ),
             textDirection: TextDirection.rtl,
           ),
@@ -132,7 +132,7 @@ class _MushafPageState extends State<MushafPage> {
       return Container(
         padding: EdgeInsets.symmetric(vertical: 4),
         child: Align(
-          alignment: line.isCentered ? Alignment.center : Alignment.centerRight,
+          alignment: line.isCentered ? Alignment.center : Alignment.center,
           child: Wrap(
             textDirection: TextDirection.rtl,
             children: words.map((word) => buildWord(word)).toList(),
@@ -152,8 +152,8 @@ class _MushafPageState extends State<MushafPage> {
       child: Text(
         word.text,
         style: TextStyle(
-          fontFamily: isOnlyArabicNumbers(word.text) ? "Uthman" : 'Digital',
-          fontSize: 16,
+          fontFamily: isOnlyArabicNumbers(word.text) ? "Uthman" : 'Me',
+          fontSize: 19,
           height: 1.8,
         ),
       ),
