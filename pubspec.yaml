@@ -53,14 +53,13 @@ flutter:
       fonts:
         - asset: assets/fonts/DigitalKhattV2.otf
 
-    # Keep only if you need headers/names (remove if not used)
+    # Keep only if you need headers/names (optional)
     - family: QCF_SurahHeader
       fonts:
         - asset: assets/fonts/QCF_SurahHeader_COLOR-Regular.ttf
     - family: SurahName
       fonts:
         - asset: assets/fonts/surah-name-v2.ttf
-
-# REMOVE THESE FONTS (commented out):
-# Nabi.ttf - completely different style
-# surah_names.ttf - duplicate of surah names
+    - family: Amiri
+      fonts:
+        - asset: assets/fonts/AmiriQuran.ttf
