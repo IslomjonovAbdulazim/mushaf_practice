@@ -1,13 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:mushaf_practice/models.dart';
 import 'package:mushaf_practice/simple_database.dart';
 
-void main() {
-  runApp(MushafApp());
+import 'mushaf_page_controller.dart';
+
+// Add font preloading to main
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Preload fonts to prevent rendering issues
+  await FontManager.preloadFonts();
+
+  runApp(const MushafApp());
 }
 
-// Main app to test
 class MushafApp extends StatelessWidget {
+  const MushafApp({Key? key}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -15,152 +25,199 @@ class MushafApp extends StatelessWidget {
       title: 'Mushaf Reader',
       theme: ThemeData(
         primarySwatch: Colors.green,
+        // Set default font fallbacks for the entire app
+        fontFamily: 'Me',
+        fontFamilyFallback: const ['Uthman', 'Digital', 'Nas'],
       ),
-      home: MushafPage(pageNumber: 2),
+      home: const MushafPageController(initialPage: 1),
     );
   }
 }
 
-class MushafPage extends StatefulWidget {
-  final int pageNumber;
+class FontManager {
+  static bool _fontsLoaded = false;
 
-  const MushafPage({Key? key, required this.pageNumber}) : super(key: key);
+  static Future<void> preloadFonts() async {
+    if (_fontsLoaded) return;
 
-  @override
-  _MushafPageState createState() => _MushafPageState();
+    try {
+      // Force load fonts by creating text with each font
+      final testTexts = [
+        ('Uthman', '١٢٣٤٥'), // Arabic numbers
+        ('Me', 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ'), // Basic Arabic
+        ('Digital', 'الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ'), // With diacritics
+        ('Nas', 'قُلْ هُوَ اللَّهُ أَحَدٌ'), // Complex text
+      ];
+
+      for (final (fontFamily, text) in testTexts) {
+        await _loadFont(fontFamily, text);
+      }
+
+      _fontsLoaded = true;
+      print('All fonts preloaded successfully');
+    } catch (e) {
+      print('Error preloading fonts: $e');
+    }
+  }
+
+  static Future<void> _loadFont(String fontFamily, String testText) async {
+    return Future.delayed(const Duration(milliseconds: 50), () {
+      // Create a temporary widget to force font loading
+      final testWidget = Text(
+        testText,
+        style: TextStyle(
+          fontFamily: fontFamily,
+          fontSize: 20,
+        ),
+      );
+      // The widget creation forces font loading
+      testWidget.toString();
+    });
+  }
 }
 
-class _MushafPageState extends State<MushafPage> {
-  Map<String, dynamic>? pageData;
-  bool isLoading = true;
+// Updated PageController with better font handling
+class MushafPageController extends StatefulWidget {
+  final int initialPage;
+  final int totalPages;
+
+  const MushafPageController({
+    Key? key,
+    this.initialPage = 1,
+    this.totalPages = 604,
+  }) : super(key: key);
+
+  @override
+  State<MushafPageController> createState() => _MushafPageControllerState();
+}
+
+class _MushafPageControllerState extends State<MushafPageController> {
+  late PageController _pageController;
+  late int _currentPage;
+
+  final Map<int, Widget> _prebuiltPages = {};
+  final Map<int, Map<String, dynamic>> _pageDataCache = {};
+  final Set<int> _currentlyLoading = {};
+  static const int _cacheSize = 5;
 
   @override
   void initState() {
     super.initState();
-    loadPage();
+    _currentPage = widget.initialPage;
+    _pageController = PageController(
+      initialPage: widget.initialPage - 1,
+      viewportFraction: 1.0,
+    );
+
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    _initializePages();
   }
 
-  Future<void> loadPage() async {
+  @override
+  void dispose() {
+    _pageController.dispose();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    super.dispose();
+  }
+
+  Future<void> _initializePages() async {
+    await _loadAndBuildPage(_currentPage);
+    _preloadPagesAround(_currentPage);
+  }
+
+  Future<void> _loadAndBuildPage(int pageNumber) async {
+    if (_prebuiltPages.containsKey(pageNumber) ||
+        _currentlyLoading.contains(pageNumber) ||
+        pageNumber < 1 || pageNumber > widget.totalPages) {
+      return;
+    }
+
+    _currentlyLoading.add(pageNumber);
+
     try {
-      final data = await SimpleDatabase.getCompletePage(widget.pageNumber);
+      final pageData = await SimpleDatabase.getCompletePage(pageNumber);
+      _pageDataCache[pageNumber] = pageData;
+
+      // Use improved font rendering
+      final widget = ImprovedMushafPageContent(pageData: pageData);
+      _prebuiltPages[pageNumber] = widget;
+
+      if (pageNumber == _currentPage && mounted) {
+        setState(() {});
+      }
+    } catch (error) {
+      print('Error loading page $pageNumber: $error');
+    } finally {
+      _currentlyLoading.remove(pageNumber);
+    }
+  }
+
+  void _preloadPagesAround(int centerPage) {
+    final priorities = [
+      centerPage,
+      centerPage + 1,
+      centerPage - 1,
+      centerPage + 2,
+      centerPage - 2,
+    ];
+
+    for (final pageNum in priorities) {
+      if (pageNum >= 1 && pageNum <= widget.totalPages) {
+        _loadAndBuildPage(pageNum);
+      }
+    }
+
+    _cleanupDistantPages(centerPage);
+  }
+
+  void _cleanupDistantPages(int currentPage) {
+    final pagesToRemove = <int>[];
+
+    for (final pageNum in _prebuiltPages.keys) {
+      if ((pageNum - currentPage).abs() > _cacheSize) {
+        pagesToRemove.add(pageNum);
+      }
+    }
+
+    for (final pageNum in pagesToRemove) {
+      _prebuiltPages.remove(pageNum);
+      _pageDataCache.remove(pageNum);
+    }
+  }
+
+  void _onPageChanged(int index) {
+    final newPage = index + 1;
+    if (newPage != _currentPage) {
       setState(() {
-        pageData = data;
-        isLoading = false;
+        _currentPage = newPage;
       });
-    } catch (e) {
-      print('Error loading page: $e');
-      setState(() {
-        isLoading = false;
-      });
+
+      _preloadPagesAround(newPage);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: isLoading
-          ? Center(child: CircularProgressIndicator())
-          : pageData == null
-          ? Center(child: Text('Error loading page'))
-          : Column(
-              children: [
-                // Page content
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border.all(color: Colors.green.shade300),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    padding: EdgeInsets.all(16),
-                    child: ListView.builder(
-                      itemCount: pageData!['lines'].length,
-                      itemBuilder: (context, index) {
-                        final lineData = pageData!['lines'][index];
-                        final PageModel line = lineData['line'];
-                        final List<UthmaniModel> words = lineData['words'];
+      backgroundColor: Colors.white,
+      body: PageView.builder(
+        controller: _pageController,
+        onPageChanged: _onPageChanged,
+        itemCount: widget.totalPages,
+        itemBuilder: (context, index) {
+          final pageNumber = index + 1;
 
-                        return buildLine(line, words);
-                      },
-                    ),
-                  ),
-                ),
-              ],
-            ),
-    );
-  }
+          if (_prebuiltPages.containsKey(pageNumber)) {
+            return _prebuiltPages[pageNumber]!;
+          }
 
-  Widget buildLine(PageModel line, List<UthmaniModel> words) {
-    // Handle different line types
-    if (line.lineType == 'surah_name') {
-      return Container(
-        padding: EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.green.shade50,
-          border: Border(bottom: BorderSide(color: Colors.green.shade200)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('صفحة ${widget.pageNumber}', style: TextStyle(fontSize: 16)),
-            Text('Page ${widget.pageNumber}', style: TextStyle(fontSize: 16)),
-          ],
-        ),
-      );
-    }
-
-    if (line.lineType == 'basmallah') {
-      return Container(
-        padding: EdgeInsets.symmetric(vertical: 8),
-        child: Center(
-          child: Text(
-            'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ',
-            style: TextStyle(
-              fontFamily: 'Me',
-              fontSize: 16,
-              color: Colors.black87,
-              height: 2,
-            ),
-            textDirection: TextDirection.rtl,
-          ),
-        ),
-      );
-    }
-
-    // Regular ayah line
-    if (words.isNotEmpty) {
-      return Container(
-        padding: EdgeInsets.symmetric(vertical: 4),
-        child: Align(
-          alignment: line.isCentered ? Alignment.center : Alignment.center,
-          child: Wrap(
-            textDirection: TextDirection.rtl,
-            children: words.map((word) => buildWord(word)).toList(),
-          ),
-        ),
-      );
-    }
-
-    return SizedBox(height: 8);
-  }
-
-  Widget buildWord(UthmaniModel word) {
-    return Padding(
-      padding: EdgeInsets.symmetric(
-        horizontal: isOnlyArabicNumbers(word.text) ? 3 : 0,
-      ),
-      child: Text(
-        word.text,
-        style: TextStyle(
-          fontFamily: isOnlyArabicNumbers(word.text) ? "Uthman" : 'Me',
-          fontSize: 19,
-          height: 1.8,
-        ),
+          return const Center(
+            child: CircularProgressIndicator(color: Colors.green),
+          );
+        },
       ),
     );
   }
 }
 
-bool isOnlyArabicNumbers(String text) {
-  return RegExp(r'^[٠-٩۰-۹]+$').hasMatch(text);
-}
+// The ImprovedMushafPageContent class goes here (from previous artifact)

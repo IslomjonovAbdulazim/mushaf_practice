@@ -1,7 +1,7 @@
 name: mushaf_practice
 description: "A new Flutter project."
 
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: 'none'
 
 version: 1.0.0+1
 
@@ -34,29 +34,33 @@ flutter:
     - assets/script/
 
   fonts:
+    # Primary Quran text fonts (similar styles)
+    - family: Hafs
+      fonts:
+        - asset: assets/fonts/Hafs.ttf
+    - family: UthmanicHafs_V22
+      fonts:
+        - asset: assets/fonts/UthmanicHafs_V22.ttf
+    - family: me_quran_volt_newmet
+      fonts:
+        - asset: assets/fonts/me_quran_volt_newmet.ttf
+
+    # Secondary fallbacks (still Arabic calligraphy)
+    - family: KFGQPCNastaleeq
+      fonts:
+        - asset: assets/fonts/KFGQPCNastaleeq-Regular.ttf
+    - family: DigitalKhattV2
+      fonts:
+        - asset: assets/fonts/DigitalKhattV2.otf
+
+    # Keep only if you need headers/names (remove if not used)
     - family: QCF_SurahHeader
       fonts:
         - asset: assets/fonts/QCF_SurahHeader_COLOR-Regular.ttf
     - family: SurahName
       fonts:
         - asset: assets/fonts/surah-name-v2.ttf
-    - family: SurahNames
-      fonts:
-        - asset: assets/fonts/surah_names.ttf
-    - family: SurahNames2
-      fonts:
-        - asset: assets/fonts/surah-name-v2.ttf
-    - family: Uthman
-      fonts:
-        - asset: assets/fonts/UthmanicHafs_V22.ttf
-    - family: Me
-      fonts:
-        - asset: assets/fonts/me_quran_volt_newmet.ttf
-    - family: Digital
-      fonts:
-        - asset: assets/fonts/DigitalKhattV2.otf
-    - family: Nas
-      fonts:
-        - asset: assets/fonts/KFGQPCNastaleeq-Regular.ttf
 
-
+# REMOVE THESE FONTS (commented out):
+# Nabi.ttf - completely different style
+# surah_names.ttf - duplicate of surah names
