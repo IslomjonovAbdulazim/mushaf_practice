@@ -22,15 +22,15 @@ class MushafApp extends StatelessWidget {
       title: 'Mushaf Reader',
       theme: ThemeData(
         primarySwatch: Colors.green,
-        fontFamily: 'Hafs',
-        fontFamilyFallback: const ['UthmanicHafs_V22', 'me_quran_volt_newmet'],
+        fontFamily: 'Me', // Set Me as default
+        fontFamilyFallback: const ['Uthmani'],
       ),
       home: const MushafPageController(initialPage: 1),
     );
   }
 }
 
-// Font preloader specifically for your fonts
+// Font preloader for Me + Uthmani fonts
 class QuranFontManager {
   static bool _fontsLoaded = false;
 
@@ -40,11 +40,10 @@ class QuranFontManager {
     try {
       // Test text samples to force font loading
       final testCases = [
-        ('Hafs', 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ'),
-        ('UthmanicHafs_V22', 'الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ'),
-        ('me_quran_volt_newmet', 'مَالِكِ يَوْمِ الدِّينِ'),
-        ('KFGQPCNastaleeq', 'إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ'),
-        ('DigitalKhattV2', '١٢٣٤٥٦٧٨٩٠'),
+        ('Me', 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ'),
+        ('Uthmani', '١٢٣٤٥٦٧٨٩٠'), // Arabic numbers
+        ('Header', 'الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ'),
+        ('SurahName', 'مَالِكِ يَوْمِ الدِّينِ'),
       ];
 
       for (final (fontFamily, testText) in testCases) {
@@ -52,7 +51,7 @@ class QuranFontManager {
       }
 
       _fontsLoaded = true;
-      print('Quran fonts preloaded successfully');
+      print('Me + Uthmani fonts preloaded successfully');
     } catch (e) {
       print('Error preloading Quran fonts: $e');
     }
@@ -71,16 +70,16 @@ class QuranFontManager {
   }
 }
 
-// Optimized text styles for Quran with seamless fallbacks
+// Font styles with Me as primary and Uthmani for numbers
 class QuranTextStyles {
-  // Primary Quran text style with invisible fallbacks
+  // Primary Quran text style with Me font
   static const TextStyle quranText = TextStyle(
-    fontFamily: "Hafs", // Your preferred font
+    fontFamily: "Me", // Primary font for Quran text
     fontFamilyFallback: [
-      "UthmanicHafs_V22", // Nearly identical backup
-      "me_quran_volt_newmet", // Good Quran font
-      "KFGQPCNastaleeq", // Still Arabic calligraphy
-      "DigitalKhattV2", // Clean fallback
+      "Uthmani", // Fallback for missing glyphs
+      "Arial Unicode MS", // System fallback
+      "Tahoma", // Windows fallback
+      "DejaVu Sans", // Linux fallback
     ],
     fontSize: 20,
     height: 1.9,
@@ -89,16 +88,19 @@ class QuranTextStyles {
       FontFeature.enable('kern'),
       FontFeature.enable('liga'),
       FontFeature.enable('calt'),
+      FontFeature.enable('ccmp'), // Character composition
+      FontFeature.enable('mark'), // Mark positioning
+      FontFeature.enable('mkmk'), // Mark to mark positioning
     ],
   );
 
-  // For Arabic numbers (use Uthman since it's more reliable for numbers)
+  // For Arabic ayah numbers (use Uthmani as before)
   static const TextStyle arabicNumbers = TextStyle(
-    fontFamily: "UthmanicHafs_V22",
+    fontFamily: "Uthmani", // Uthmani for ayah numbers
     fontFamilyFallback: [
-      "Hafs",
-      "me_quran_volt_newmet",
-      "DigitalKhattV2",
+      "Me", // Me as fallback
+      "Arial Unicode MS",
+      "Tahoma",
     ],
     fontSize: 20,
     height: 1.9,
@@ -106,16 +108,16 @@ class QuranTextStyles {
     fontFeatures: [
       FontFeature.enable('kern'),
       FontFeature.enable('liga'),
+      FontFeature.enable('lnum'), // Lining numbers
     ],
   );
 
-  // For Basmallah (special treatment)
+  // For Basmallah (use Me font)
   static const TextStyle basmallah = TextStyle(
-    fontFamily: "Hafs",
+    fontFamily: "Me",
     fontFamilyFallback: [
-      "UthmanicHafs_V22",
-      "me_quran_volt_newmet",
-      "KFGQPCNastaleeq",
+      "Uthmani",
+      "Arial Unicode MS",
     ],
     fontSize: 22, // Slightly larger for Basmallah
     height: 2.0,
@@ -125,7 +127,35 @@ class QuranTextStyles {
       FontFeature.enable('kern'),
       FontFeature.enable('liga'),
       FontFeature.enable('calt'),
+      FontFeature.enable('ccmp'),
+      FontFeature.enable('mark'),
+      FontFeature.enable('mkmk'),
     ],
+  );
+
+  // For headers (using dedicated header font)
+  static const TextStyle header = TextStyle(
+    fontFamily: "Header",
+    fontFamilyFallback: [
+      "Me",
+      "Uthmani",
+    ],
+    fontSize: 18,
+    fontWeight: FontWeight.bold,
+    color: Colors.green,
+  );
+
+  // For surah names (using dedicated surah font)
+  static const TextStyle surahName = TextStyle(
+    fontFamily: "SurahName",
+    fontFamilyFallback: [
+      "Header",
+      "Me",
+      "Uthmani",
+    ],
+    fontSize: 20,
+    fontWeight: FontWeight.w600,
+    color: Colors.black87,
   );
 }
 
@@ -287,7 +317,7 @@ class _MushafPageControllerState extends State<MushafPageController> {
   }
 }
 
-// Updated Mushaf content with optimized fonts
+// Updated Mushaf content with Me + Uthmani fonts
 class OptimizedMushafPageContent extends StatelessWidget {
   final Map<String, dynamic> pageData;
   static final RegExp _arabicNumberRegex = RegExp(r'^[٠-٩۰-۹]+$');
@@ -323,12 +353,7 @@ class OptimizedMushafPageContent extends StatelessWidget {
           child: Center(
             child: Text(
               'صفحة $pageNumber',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.green,
-                fontFamily: null, // Use system font for page numbers
-              ),
+              style: QuranTextStyles.header,
             ),
           ),
         );

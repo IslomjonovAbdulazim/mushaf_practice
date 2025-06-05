@@ -194,7 +194,7 @@ class CharacterLevelMushafContent extends StatelessWidget {
       style: TextStyle(
         fontFamily: isArabicNumber ? "Uthman" : "Me",
         fontFamilyFallback: const ["Uthman", "Digital", "Nas"],
-        fontSize: 20,
+        fontSize: 18,
         height: 1.9,
         color: Colors.black,
         fontFeatures: const [
@@ -263,11 +263,6 @@ class EnhancedArabicText extends StatelessWidget {
         fontFamilyFallback: const [
           "Me",
           "Uthman",
-          "Digital",
-          "Nas",
-          "Arial Unicode MS", // System fallback
-          "Tahoma", // Windows fallback
-          "DejaVu Sans", // Linux fallback
         ],
         fontFeatures: const [
           FontFeature.enable('kern'),
