@@ -8,13 +8,50 @@ class MushafPage extends StatelessWidget {
 
   const MushafPage({Key? key, required this.pageNumber}) : super(key: key);
 
+  // Simple juz calculation based on page number
+  int _getJuzNumber(int pageNumber) {
+    if (pageNumber <= 22) return 1;
+    if (pageNumber <= 42) return 2;
+    if (pageNumber <= 62) return 3;
+    if (pageNumber <= 82) return 4;
+    if (pageNumber <= 102) return 5;
+    if (pageNumber <= 122) return 6;
+    if (pageNumber <= 142) return 7;
+    if (pageNumber <= 162) return 8;
+    if (pageNumber <= 182) return 9;
+    if (pageNumber <= 202) return 10;
+    if (pageNumber <= 222) return 11;
+    if (pageNumber <= 242) return 12;
+    if (pageNumber <= 262) return 13;
+    if (pageNumber <= 282) return 14;
+    if (pageNumber <= 302) return 15;
+    if (pageNumber <= 322) return 16;
+    if (pageNumber <= 342) return 17;
+    if (pageNumber <= 362) return 18;
+    if (pageNumber <= 382) return 19;
+    if (pageNumber <= 402) return 20;
+    if (pageNumber <= 422) return 21;
+    if (pageNumber <= 442) return 22;
+    if (pageNumber <= 462) return 23;
+    if (pageNumber <= 482) return 24;
+    if (pageNumber <= 502) return 25;
+    if (pageNumber <= 522) return 26;
+    if (pageNumber <= 542) return 27;
+    if (pageNumber <= 562) return 28;
+    if (pageNumber <= 582) return 29;
+    return 30; // Juz 30 (last juz)
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Map<String, dynamic>>(
       future: DatabaseManager.getCompletePageData(pageNumber),
       builder: (context, snapshot) {
         if (snapshot.hasData) {
-          return MushafPageContent(pageData: snapshot.data!);
+          return MushafPageContent(
+            pageData: snapshot.data!,
+            juzNumber: _getJuzNumber(pageNumber),
+          );
         } else if (snapshot.hasError) {
           return Center(
             child: Text(
@@ -31,8 +68,13 @@ class MushafPage extends StatelessWidget {
 
 class MushafPageContent extends StatelessWidget {
   final Map<String, dynamic> pageData;
+  final int juzNumber;
 
-  const MushafPageContent({Key? key, required this.pageData}) : super(key: key);
+  const MushafPageContent({
+    Key? key,
+    required this.pageData,
+    required this.juzNumber,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -52,29 +94,46 @@ class MushafPageContent extends StatelessWidget {
                 child: Column(
                   children: lines.map<Widget>((lineData) {
                     final PageModel line = lineData['line'];
-                    final List<UthmaniModel> words =
-                    List<UthmaniModel>.from(lineData['words']);
+                    final List<UthmaniModel> words = List<UthmaniModel>.from(
+                      lineData['words'],
+                    );
                     return _buildLine(line, words);
                   }).toList(),
                 ),
               ),
             ),
 
-            // Simple header with just surah name in Arabic
+            // Header with surah name (left) and juz number (right)
             Positioned(
               top: 15,
               left: 20,
               right: 20,
-              child: Text(
-                surahName,
-                style: const TextStyle(
-                  fontFamily: 'Digital',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-                textAlign: TextAlign.center,
-                textDirection: TextDirection.rtl,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Surah name on the left
+                  Text(
+                    surahName,
+                    style: const TextStyle(
+                      fontFamily: 'Digital',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                    textDirection: TextDirection.rtl,
+                  ),
+                  // Juz number on the right
+                  Text(
+                    'الجزء $juzNumber',
+                    style: const TextStyle(
+                      fontFamily: 'Digital',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                    textDirection: TextDirection.rtl,
+                  ),
+                ],
               ),
             ),
 
@@ -107,8 +166,8 @@ class MushafPageContent extends StatelessWidget {
           child: Text(
             'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ',
             style: const TextStyle(
-              fontFamily: 'Digital',
-              fontSize: 18,
+              fontFamily: 'Digital', // Using Digital font for basmallah
+              fontSize: 17,
               fontWeight: FontWeight.w600,
               color: Colors.black,
             ),
@@ -124,7 +183,9 @@ class MushafPageContent extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
-      child: line.isCentered ? _buildCenteredLine(words) : _buildJustifiedLine(words),
+      child: line.isCentered
+          ? _buildCenteredLine(words)
+          : _buildJustifiedLine(words),
     );
   }
 
@@ -133,16 +194,7 @@ class MushafPageContent extends StatelessWidget {
       child: Wrap(
         textDirection: TextDirection.rtl,
         spacing: 4,
-        children: words.map((word) => Text(
-          word.text,
-          style: const TextStyle(
-            fontFamily: 'Digital',
-            fontSize: 16,
-            color: Colors.black,
-            height: 1.8,
-          ),
-          textDirection: TextDirection.rtl,
-        )).toList(),
+        children: words.map((word) => _buildWordText(word)).toList(),
       ),
     );
   }
@@ -151,32 +203,44 @@ class MushafPageContent extends StatelessWidget {
     if (words.length == 1) {
       return Align(
         alignment: Alignment.centerRight,
-        child: Text(
-          words.first.text,
-          style: const TextStyle(
-            fontFamily: 'Digital',
-            fontSize: 16,
-            color: Colors.black,
-            height: 1.8,
-          ),
-          textDirection: TextDirection.rtl,
-        ),
+        child: _buildWordText(words.first),
       );
     }
 
     return Row(
       textDirection: TextDirection.rtl,
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: words.map((word) => Text(
-        word.text,
-        style: const TextStyle(
-          fontFamily: 'Digital',
-          fontSize: 16,
-          color: Colors.black,
-          height: 1.8,
-        ),
-        textDirection: TextDirection.rtl,
-      )).toList(),
+      children: words.map((word) => _buildWordText(word)).toList(),
     );
+  }
+
+  Widget _buildWordText(UthmaniModel word) {
+    // Check if this word is an ayah number (simple detection)
+    bool isAyahNumber = _isAyahNumber(word.text);
+
+    return Text(
+      word.text,
+      style: TextStyle(
+        fontFamily: isAyahNumber ? 'Uthmani' : 'Digital',
+        // Uthmani for ayah numbers, Digital for content
+        fontSize: isAyahNumber ? 13 : 14.5,
+        color: Colors.black,
+        height: 1.8,
+        letterSpacing: 0,
+        wordSpacing: 0,
+      ),
+      textDirection: TextDirection.rtl,
+    );
+  }
+
+  // Simple ayah number detection
+  bool _isAyahNumber(String text) {
+    // Ayah numbers are typically enclosed in specific Unicode characters
+    // This is a simple check - you might need to adjust based on your data
+    return text.contains('۝') || // End of ayah marker
+        text.contains('﴾') || // Ayah number brackets
+        text.contains('﴿') ||
+        (text.length <= 3 &&
+            RegExp(r'^[٠-٩]+$').hasMatch(text)); // Short Arabic numerals
   }
 }

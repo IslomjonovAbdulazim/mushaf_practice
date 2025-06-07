@@ -44,13 +44,13 @@ class MushafController extends StatefulWidget {
 
 class _MushafControllerState extends State<MushafController> {
   late PageController _pageController;
-  int _currentPage = 1;
+  int _currentPage = 600;
   final int _totalPages = 604;
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(initialPage: 0);
+    _pageController = PageController(initialPage: _currentPage);
     _setFullScreen();
   }
 
