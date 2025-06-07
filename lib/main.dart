@@ -1,17 +1,21 @@
-// lib/main.dart - Simple sliding controls display only
+// lib/main.dart - Clean main app
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:get/get.dart';
 import 'package:mushaf_practice/database.dart';
-import 'package:mushaf_practice/mushaf_page.dart';
+import 'package:mushaf_practice/pages/menu_page.dart';
+import 'package:mushaf_practice/services/data_service.dart';
+import 'package:mushaf_practice/widgets/mushaf_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
     await DatabaseManager.initializeDatabases();
-    print('✅ Databases initialized');
+    await DataService.initializeCache();
+    print('✅ App initialized successfully');
   } catch (error) {
-    print('❌ Database error: $error');
+    print('❌ Initialization error: $error');
   }
 
   runApp(const MushafApp());
@@ -22,7 +26,7 @@ class MushafApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return GetMaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'المصحف',
       theme: ThemeData(
@@ -49,29 +53,13 @@ class _MushafControllerState extends State<MushafController>
   late Animation<Offset> _topSlideAnimation;
   late Animation<Offset> _bottomSlideAnimation;
 
-  int _currentPage = 600;
+  int _currentPage = 1;
   bool _showControls = false;
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(initialPage: _currentPage - 1);
-
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 150),
-      vsync: this,
-    );
-
-    _topSlideAnimation = Tween<Offset>(
-      begin: const Offset(0.0, -1.0),
-      end: Offset.zero,
-    ).animate(_animationController);
-
-    _bottomSlideAnimation = Tween<Offset>(
-      begin: const Offset(0.0, 1.0),
-      end: Offset.zero,
-    ).animate(_animationController);
-
+    _setupControllers();
     _setFullScreen();
   }
 
@@ -80,6 +68,31 @@ class _MushafControllerState extends State<MushafController>
     _pageController.dispose();
     _animationController.dispose();
     super.dispose();
+  }
+
+  void _setupControllers() {
+    _pageController = PageController(initialPage: _currentPage - 1);
+
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 200),
+      vsync: this,
+    );
+
+    _topSlideAnimation = Tween<Offset>(
+      begin: const Offset(0.0, -1.0),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
+
+    _bottomSlideAnimation = Tween<Offset>(
+      begin: const Offset(0.0, 1.0),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
   }
 
   void _setFullScreen() {
@@ -107,6 +120,23 @@ class _MushafControllerState extends State<MushafController>
     }
   }
 
+  void _goToPage(int pageNumber) {
+    if (pageNumber >= 1 && pageNumber <= 604) {
+      _pageController.animateToPage(
+        pageNumber - 1,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  Future<void> _openMenu() async {
+    final result = await Get.to(() => const MenuPage());
+    if (result != null && result is int) {
+      _goToPage(result);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -115,142 +145,215 @@ class _MushafControllerState extends State<MushafController>
         onTap: _toggleControls,
         child: Stack(
           children: [
-            // Main PageView
-            PageView.builder(
-              reverse: true,
-              controller: _pageController,
-              onPageChanged: _onPageChanged,
-              itemCount: 604,
-              itemBuilder: (context, index) {
-                int actualPageNumber = index + 1;
-                return Transform(
-                  alignment: Alignment.center,
-                  transform: Matrix4.identity()..scale(-1.0, 1.0),
-                  child: Transform(
-                    alignment: Alignment.center,
-                    transform: Matrix4.identity()..scale(-1.0, 1.0),
-                    child: MushafPage(pageNumber: actualPageNumber),
-                  ),
-                );
-              },
-            ),
-
-            if (_showControls) Container(color: Colors.black.withOpacity(0.2)),
-
-            // Top controls - Menu and Settings
-            SlideTransition(
-              position: _topSlideAnimation,
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: Container(
-                  width: double.infinity,
-                  color: Colors.white.withOpacity(0.95),
-                  child: SafeArea(
-                    bottom: false,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        IconButton(
-                          onPressed: () {},
-                          icon: Icon(
-                            Icons.menu,
-                            color: Colors.green.shade700,
-                            size: 28,
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () {},
-                          icon: Icon(
-                            Icons.settings,
-                            color: Colors.green.shade700,
-                            size: 28,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-            // Bottom controls
-            SlideTransition(
-              position: _bottomSlideAnimation,
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.green.shade50,
-                        borderRadius: BorderRadius.circular(25),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Reciter button
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(15),
-                            ),
-                            child: Text(
-                              'عبد الباسط',
-                              style: TextStyle(
-                                fontFamily: 'Digital',
-                                fontSize: 12,
-                                color: Colors.green.shade800,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          // Play button
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.green.shade600,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.play_arrow,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: 10),
-                    Container(
-                      width: double.infinity,
-                      color: Colors.white.withOpacity(0.95),
-                      child: SafeArea(
-                        top: false,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Slider(
-                              value: _currentPage.toDouble(),
-                              min: 1,
-                              max: 604,
-                              activeColor: Colors.green.shade600,
-                              inactiveColor: Colors.green.shade200,
-                              onChanged: (value) {},
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            _buildPageView(),
+            if (_showControls) _buildOverlay(),
+            if (_showControls) _buildTopControls(),
+            if (_showControls) _buildBottomControls(),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildPageView() {
+    return PageView.builder(
+      reverse: true,
+      controller: _pageController,
+      onPageChanged: _onPageChanged,
+      itemCount: 604,
+      itemBuilder: (context, index) {
+        final pageNumber = index + 1;
+        return Transform(
+          alignment: Alignment.center,
+          transform: Matrix4.identity()..scale(-1.0, 1.0),
+          child: Transform(
+            alignment: Alignment.center,
+            transform: Matrix4.identity()..scale(-1.0, 1.0),
+            child: MushafPage(pageNumber: pageNumber),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildOverlay() {
+    return Container(
+      color: Colors.black.withOpacity(0.3),
+    );
+  }
+
+  Widget _buildTopControls() {
+    return SlideTransition(
+      position: _topSlideAnimation,
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: Container(
+          width: double.infinity,
+          color: Colors.white.withOpacity(0.95),
+          child: SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    onPressed: _openMenu,
+                    icon: Icon(
+                      Icons.menu,
+                      color: Colors.green.shade700,
+                      size: 28,
+                    ),
+                  ),
+                  Text(
+                    'صفحة $_currentPage',
+                    style: TextStyle(
+                      fontFamily: 'Digital',
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green.shade700,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      // Settings functionality
+                    },
+                    icon: Icon(
+                      Icons.settings,
+                      color: Colors.green.shade700,
+                      size: 28,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomControls() {
+    return SlideTransition(
+      position: _bottomSlideAnimation,
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: Container(
+          width: double.infinity,
+          color: Colors.white.withOpacity(0.95),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildQuickNavigation(),
+                  const SizedBox(height: 16),
+                  _buildPageSlider(),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickNavigation() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        _buildNavButton(
+          icon: Icons.first_page,
+          label: 'البداية',
+          onPressed: () => _goToPage(1),
+        ),
+        _buildNavButton(
+          icon: Icons.remove,
+          label: '-10',
+          onPressed: () => _goToPage(_currentPage - 10),
+        ),
+        _buildNavButton(
+          icon: Icons.remove,
+          label: '-1',
+          onPressed: () => _goToPage(_currentPage - 1),
+        ),
+        _buildNavButton(
+          icon: Icons.add,
+          label: '+1',
+          onPressed: () => _goToPage(_currentPage + 1),
+        ),
+        _buildNavButton(
+          icon: Icons.add,
+          label: '+10',
+          onPressed: () => _goToPage(_currentPage + 10),
+        ),
+        _buildNavButton(
+          icon: Icons.last_page,
+          label: 'النهاية',
+          onPressed: () => _goToPage(604),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNavButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onPressed,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          onPressed: onPressed,
+          icon: Icon(
+            icon,
+            color: Colors.green.shade600,
+            size: 24,
+          ),
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.green.shade50,
+            padding: const EdgeInsets.all(8),
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'Digital',
+            fontSize: 10,
+            color: Colors.green.shade600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPageSlider() {
+    return Column(
+      children: [
+        Text(
+          'الصفحة $_currentPage من 604',
+          style: TextStyle(
+            fontFamily: 'Digital',
+            fontSize: 14,
+            color: Colors.green.shade700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Slider(
+          value: _currentPage.toDouble(),
+          min: 1,
+          max: 604,
+          divisions: 603,
+          activeColor: Colors.green.shade600,
+          inactiveColor: Colors.green.shade200,
+          onChanged: (value) {
+            _goToPage(value.round());
+          },
+        ),
+      ],
     );
   }
 }
