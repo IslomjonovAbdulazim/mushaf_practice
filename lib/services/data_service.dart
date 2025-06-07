@@ -1,27 +1,91 @@
-// lib/services/data_service.dart - Clean service layer for data operations
+// lib/services/data_service.dart - Optimized service layer
 import 'package:mushaf_practice/database.dart';
 import 'package:mushaf_practice/models.dart';
 import 'package:mushaf_practice/utils/helpers.dart';
 
 class DataService {
-  // Cache for performance
+  // Optimized cache with better memory management
   static final Map<int, SurahModel> _surahCache = {};
   static final Map<int, List<PageModel>> _pageCache = {};
+  static final Map<int, List<Map<String, dynamic>>> _pageDataCache = {};
+  static final Map<int, int> _pageSurahCache = {};
+  static final Map<int, int> _surahPageCache = {};
   static final List<JuzModel> _juzCache = [];
   static final Map<int, String> _juzNameCache = {};
 
-  // Initialize cache
+  static const int _maxCacheSize = 20; // Limit cache size
+  static bool _isInitialized = false;
+
+  // Initialize cache with optimized loading
   static Future<void> initializeCache() async {
+    if (_isInitialized) return;
+
     try {
-      await _loadJuzData();
-      await _loadAllSurahs();
+      await Future.wait([
+        _loadJuzData(),
+        _loadAllSurahs(),
+        _preloadCriticalPageMappings(),
+      ]);
+      _isInitialized = true;
       print('✅ Cache initialized successfully');
     } catch (e) {
       print('❌ Cache initialization failed: $e');
+      rethrow;
     }
   }
 
-  // Load juz data and names from database
+  // Preload critical page-surah mappings for better performance
+  static Future<void> _preloadCriticalPageMappings() async {
+    try {
+      final database = await DatabaseManager.mushafDatabase;
+
+      // Get first word of every 20th page for quick surah lookup
+      final pageNumbers = [1, 21, 41, 61, 81, 101, 121, 141, 161, 181, 201, 221, 241, 261, 281, 301, 321, 341, 361, 381, 401, 421, 441, 461, 481, 501, 521, 541, 561, 581, 601];
+
+      for (int pageNum in pageNumbers) {
+        final result = await database.query(
+          'pages',
+          where: 'page_number = ?',
+          whereArgs: [pageNum],
+          orderBy: 'line_number ASC',
+          limit: 1,
+        );
+
+        if (result.isNotEmpty) {
+          final firstWordId = MushafUtils.safeParseInt(result.first['first_word_id']);
+          if (firstWordId > 0) {
+            final surahId = await _getSurahFromWordId(firstWordId);
+            _pageSurahCache[pageNum] = surahId;
+          }
+        }
+      }
+    } catch (e) {
+      print('Error preloading page mappings: $e');
+    }
+  }
+
+  // Optimized surah lookup from word ID
+  static Future<int> _getSurahFromWordId(int wordId) async {
+    try {
+      final scriptDb = await DatabaseManager.scriptDatabase;
+      final result = await scriptDb.query(
+        'words',
+        columns: ['surah'],
+        where: 'id = ?',
+        whereArgs: [wordId],
+        limit: 1,
+      );
+
+      if (result.isNotEmpty) {
+        return MushafUtils.safeParseInt(result.first['surah'], defaultValue: 1);
+      }
+    } catch (e) {
+      print('Error getting surah from word ID $wordId: $e');
+    }
+    return 1;
+  }
+
+  // Optimized juz data loading
   static Future<void> _loadJuzData() async {
     try {
       final database = await DatabaseManager.juzDatabase;
@@ -34,53 +98,19 @@ class DataService {
         final juz = JuzModel.fromJson(row);
         _juzCache.add(juz);
 
-        // Get juz name from database
-        final juzName = await _getJuzNameFromDatabase(juz.juzNumber, juz.firstVerseKey);
-        _juzNameCache[juz.juzNumber] = juzName;
+        // Use traditional names for better performance
+        _juzNameCache[juz.juzNumber] = MushafUtils.getTraditionalJuzName(juz.juzNumber);
       }
     } catch (e) {
       print('Error loading juz data: $e');
-      // Initialize with traditional names as fallback
+      // Fallback to traditional names
       for (int i = 1; i <= 30; i++) {
         _juzNameCache[i] = MushafUtils.getTraditionalJuzName(i);
       }
     }
   }
 
-  // Get juz name from database using first verse
-  static Future<String> _getJuzNameFromDatabase(int juzNumber, String firstVerseKey) async {
-    try {
-      final parts = firstVerseKey.split(':');
-      if (parts.length >= 2) {
-        final surahId = MushafUtils.safeParseInt(parts[0], defaultValue: 1);
-        final ayahNumber = MushafUtils.safeParseInt(parts[1], defaultValue: 1);
-
-        final database = await DatabaseManager.scriptDatabase;
-        final result = await database.query(
-          'words',
-          where: 'surah = ? AND ayah = ? AND word = 1',
-          whereArgs: [surahId, ayahNumber],
-          limit: 1,
-        );
-
-        if (result.isNotEmpty) {
-          final word = UthmaniModel.fromJson(result.first);
-          // Clean the text and return first few words
-          final cleanText = word.text.trim();
-          if (cleanText.isNotEmpty) {
-            return cleanText;
-          }
-        }
-      }
-    } catch (e) {
-      print('Error getting juz name for juz $juzNumber: $e');
-    }
-
-    // Fallback to traditional name
-    return MushafUtils.getTraditionalJuzName(juzNumber);
-  }
-
-  // Load all surahs into cache
+  // Optimized surah loading
   static Future<void> _loadAllSurahs() async {
     try {
       final database = await DatabaseManager.surahDatabase;
@@ -93,40 +123,29 @@ class DataService {
       }
     } catch (e) {
       print('Error loading surahs: $e');
-      throw e;
+      rethrow;
     }
   }
 
-  // Get surah by ID
+  // Optimized surah retrieval
   static Future<SurahModel?> getSurahById(int surahId) async {
     if (!MushafUtils.isValidSurahNumber(surahId)) return null;
 
+    // Check cache first
     if (_surahCache.containsKey(surahId)) {
       return _surahCache[surahId];
     }
 
-    try {
-      final database = await DatabaseManager.surahDatabase;
-      final result = await database.query(
-        'chapters',
-        where: 'id = ?',
-        whereArgs: [surahId],
-        limit: 1,
-      );
-
-      if (result.isNotEmpty) {
-        final surah = SurahModel.fromJson(result.first);
-        _surahCache[surahId] = surah;
-        return surah;
-      }
-    } catch (e) {
-      print('Error getting surah $surahId: $e');
+    // Load all surahs if cache is empty
+    if (_surahCache.isEmpty) {
+      await _loadAllSurahs();
+      return _surahCache[surahId];
     }
 
     return null;
   }
 
-  // Get all surahs
+  // Get all surahs from cache
   static Future<List<SurahModel>> getAllSurahs() async {
     if (_surahCache.isEmpty) {
       await _loadAllSurahs();
@@ -134,37 +153,22 @@ class DataService {
     return _surahCache.values.toList()..sort((a, b) => a.id.compareTo(b.id));
   }
 
-  // Get juz number for surah
+  // Optimized juz lookup
   static Future<int> getJuzForSurah(int surahId) async {
     if (!MushafUtils.isValidSurahNumber(surahId)) return 1;
-
-    for (var juz in _juzCache) {
-      final firstVerse = juz.firstVerseKey.split(':');
-      final lastVerse = juz.lastVerseKey.split(':');
-
-      if (firstVerse.length >= 2 && lastVerse.length >= 2) {
-        final firstSurah = MushafUtils.safeParseInt(firstVerse[0]);
-        final lastSurah = MushafUtils.safeParseInt(lastVerse[0]);
-
-        if (surahId >= firstSurah && surahId <= lastSurah) {
-          return juz.juzNumber;
-        }
-      }
-    }
-
-    // Fallback calculation
-    return ((surahId - 1) ~/ 4) + 1;
+    return MushafUtils.getJuzFromSurah(surahId);
   }
 
-  // Get juz name
+  // Get juz name from cache
   static String getJuzName(int juzNumber) {
     return _juzNameCache[juzNumber] ?? MushafUtils.getTraditionalJuzName(juzNumber);
   }
 
-  // Get page layout
+  // Optimized page layout with caching
   static Future<List<PageModel>> getPageLayout(int pageNumber) async {
     if (!MushafUtils.isValidPageNumber(pageNumber)) return [];
 
+    // Check cache first
     if (_pageCache.containsKey(pageNumber)) {
       return _pageCache[pageNumber]!;
     }
@@ -180,15 +184,8 @@ class DataService {
 
       final pageLayout = result.map((row) => PageModel.fromJson(row)).toList();
 
-      // Cache result (limit cache size to prevent memory issues)
-      if (_pageCache.length < 50) {
-        _pageCache[pageNumber] = pageLayout;
-      } else {
-        // Remove oldest entry
-        final oldestKey = _pageCache.keys.first;
-        _pageCache.remove(oldestKey);
-        _pageCache[pageNumber] = pageLayout;
-      }
+      // Cache with size limit
+      _manageCacheSize(_pageCache, pageNumber, pageLayout);
 
       return pageLayout;
     } catch (e) {
@@ -197,11 +194,9 @@ class DataService {
     }
   }
 
-  // Get words for line
+  // Optimized words retrieval
   static Future<List<UthmaniModel>> getWordsForLine(PageModel line) async {
-    if (line.firstWordId == null || line.lastWordId == null) {
-      return [];
-    }
+    if (line.firstWordId == null || line.lastWordId == null) return [];
 
     try {
       final database = await DatabaseManager.scriptDatabase;
@@ -219,40 +214,72 @@ class DataService {
     }
   }
 
-  // Get complete page data
+  // Optimized complete page data with caching
   static Future<Map<String, dynamic>> getCompletePageData(int pageNumber) async {
+    // Check cache first
+    if (_pageDataCache.containsKey(pageNumber)) {
+      return _pageDataCache[pageNumber]!.first;
+    }
+
     final pageLayout = await getPageLayout(pageNumber);
     final lines = <Map<String, dynamic>>[];
 
-    // Process each line
-    for (var line in pageLayout) {
+    // Process lines in batch for better performance
+    final futures = pageLayout.map((line) async {
       final words = await getWordsForLine(line);
-      lines.add({
+      return {
         'line': line,
         'words': words,
-      });
-    }
+      };
+    });
 
-    // Get surah name for this page
+    final results = await Future.wait(futures);
+    lines.addAll(results);
+
+    // Get surah name efficiently
     final surahId = await getSurahForPage(pageNumber);
     final surah = await getSurahById(surahId);
 
-    return {
+    final pageData = {
       'pageNumber': pageNumber,
       'lines': lines,
       'surahName': surah?.nameArabic ?? 'القرآن الكريم',
       'juzNumber': MushafUtils.getJuzFromPage(pageNumber),
     };
+
+    // Cache with size limit
+    _manageCacheSize(_pageDataCache, pageNumber, [pageData]);
+
+    return pageData;
   }
 
-  // Get surah for page using database queries
+  // Optimized surah lookup for page with caching and fix for type casting
   static Future<int> getSurahForPage(int pageNumber) async {
     if (!MushafUtils.isValidPageNumber(pageNumber)) return 1;
 
+    // Check cache first
+    if (_pageSurahCache.containsKey(pageNumber)) {
+      return _pageSurahCache[pageNumber]!;
+    }
+
+    // Check nearby cached pages
+    for (int offset = 1; offset <= 10; offset++) {
+      if (_pageSurahCache.containsKey(pageNumber - offset)) {
+        final nearbyPage = pageNumber - offset;
+        final surahId = _pageSurahCache[nearbyPage]!;
+
+        // Check if this page is likely in the same surah
+        final estimatedSurah = await _estimateSurahForPage(pageNumber, nearbyPage, surahId);
+        if (estimatedSurah > 0) {
+          _pageSurahCache[pageNumber] = estimatedSurah;
+          return estimatedSurah;
+        }
+        break;
+      }
+    }
+
     try {
       final database = await DatabaseManager.mushafDatabase;
-
-      // Get first word of this page
       final pageResult = await database.query(
         'pages',
         where: 'page_number = ?',
@@ -262,68 +289,83 @@ class DataService {
       );
 
       if (pageResult.isNotEmpty) {
-        final firstWordId = pageResult.first['first_word_id'] as int?;
+        // Fix: Safe parsing of first_word_id
+        final firstWordId = MushafUtils.safeParseInt(pageResult.first['first_word_id']);
 
-        if (firstWordId != null) {
-          final scriptDb = await DatabaseManager.scriptDatabase;
-          final wordResult = await scriptDb.query(
-            'words',
-            where: 'id = ?',
-            whereArgs: [firstWordId],
-            limit: 1,
-          );
-
-          if (wordResult.isNotEmpty) {
-            return MushafUtils.safeParseInt(wordResult.first['surah'], defaultValue: 1);
-          }
+        if (firstWordId > 0) {
+          final surahId = await _getSurahFromWordId(firstWordId);
+          _pageSurahCache[pageNumber] = surahId;
+          return surahId;
         }
       }
     } catch (e) {
       print('Error getting surah for page $pageNumber: $e');
     }
 
-    return 1; // Default: Al-Fatiha
+    // Fallback
+    const fallbackSurah = 1;
+    _pageSurahCache[pageNumber] = fallbackSurah;
+    return fallbackSurah;
   }
 
-  // Get surah start page using database
+  // Estimate surah for page based on nearby page
+  static Future<int> _estimateSurahForPage(int targetPage, int knownPage, int knownSurah) async {
+    // Simple heuristic: if pages are close, likely same surah
+    final pageDiff = (targetPage - knownPage).abs();
+    if (pageDiff <= 5) {
+      return knownSurah;
+    }
+    return 0; // Uncertain
+  }
+
+  // Optimized surah start page with caching
   static Future<int> getSurahStartPage(int surahId) async {
     if (!MushafUtils.isValidSurahNumber(surahId)) return 1;
 
+    // Check cache first
+    if (_surahPageCache.containsKey(surahId)) {
+      return _surahPageCache[surahId]!;
+    }
+
     try {
       final scriptDb = await DatabaseManager.scriptDatabase;
-
-      // Get first word of this surah
       final wordResult = await scriptDb.query(
         'words',
+        columns: ['id'],
         where: 'surah = ? AND ayah = 1 AND word = 1',
         whereArgs: [surahId],
         limit: 1,
       );
 
       if (wordResult.isNotEmpty) {
-        final firstWordId = wordResult.first['id'] as int;
+        final firstWordId = MushafUtils.safeParseInt(wordResult.first['id']);
 
-        // Find which page contains this word
         final mushafDb = await DatabaseManager.mushafDatabase;
         final pageResult = await mushafDb.query(
           'pages',
+          columns: ['page_number'],
           where: 'first_word_id <= ? AND last_word_id >= ?',
           whereArgs: [firstWordId, firstWordId],
           limit: 1,
         );
 
         if (pageResult.isNotEmpty) {
-          return MushafUtils.safeParseInt(pageResult.first['page_number'], defaultValue: 1);
+          final startPage = MushafUtils.safeParseInt(pageResult.first['page_number'], defaultValue: 1);
+          _surahPageCache[surahId] = startPage;
+          return startPage;
         }
       }
     } catch (e) {
       print('Error getting start page for surah $surahId: $e');
     }
 
-    return 1; // Default
+    // Fallback using approximation
+    final startPage = MushafUtils.getApproximateSurahStartPage(surahId);
+    _surahPageCache[surahId] = startPage;
+    return startPage;
   }
 
-  // Get all juz data
+  // Get all juz data from cache
   static Future<List<JuzModel>> getAllJuz() async {
     if (_juzCache.isEmpty) {
       await _loadJuzData();
@@ -331,12 +373,28 @@ class DataService {
     return List.from(_juzCache);
   }
 
+  // Generic cache size management
+  static void _manageCacheSize<T>(Map<int, T> cache, int key, T value) {
+    if (cache.length >= _maxCacheSize) {
+      // Remove oldest entries (simple FIFO)
+      final keysToRemove = cache.keys.take(cache.length - _maxCacheSize + 1);
+      for (final keyToRemove in keysToRemove) {
+        cache.remove(keyToRemove);
+      }
+    }
+    cache[key] = value;
+  }
+
   // Clear cache for memory management
   static void clearCache() {
     _surahCache.clear();
     _pageCache.clear();
+    _pageDataCache.clear();
+    _pageSurahCache.clear();
+    _surahPageCache.clear();
     _juzCache.clear();
     _juzNameCache.clear();
+    _isInitialized = false;
     print('Cache cleared');
   }
 
@@ -345,6 +403,9 @@ class DataService {
     return {
       'surahs': _surahCache.length,
       'pages': _pageCache.length,
+      'pageData': _pageDataCache.length,
+      'pageSurah': _pageSurahCache.length,
+      'surahPage': _surahPageCache.length,
       'juz': _juzCache.length,
       'juzNames': _juzNameCache.length,
     };

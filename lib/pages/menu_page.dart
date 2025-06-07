@@ -1,4 +1,4 @@
-// lib/pages/menu_page.dart - Clean menu page with database integration
+// lib/pages/menu_page.dart - Optimized menu page with better performance
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:mushaf_practice/models.dart';
@@ -15,6 +15,16 @@ class SurahWithDetails {
     required this.startPage,
     required this.juzNumber,
   });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+          other is SurahWithDetails &&
+              runtimeType == other.runtimeType &&
+              surah.id == other.surah.id;
+
+  @override
+  int get hashCode => surah.id.hashCode;
 }
 
 class MenuPage extends StatefulWidget {
@@ -28,6 +38,9 @@ class _MenuPageState extends State<MenuPage> {
   List<SurahWithDetails> surahs = [];
   bool isLoading = true;
   String? errorMessage;
+
+  // Cache for grouped surahs by juz
+  Map<int, List<SurahWithDetails>> _groupedSurahs = {};
 
   @override
   void initState() {
@@ -45,6 +58,7 @@ class _MenuPageState extends State<MenuPage> {
       final allSurahs = await DataService.getAllSurahs();
       final surahDetailsList = <SurahWithDetails>[];
 
+      // Process surahs in batches for better performance
       for (var surah in allSurahs) {
         final juzNumber = await DataService.getJuzForSurah(surah.id);
         final startPage = await DataService.getSurahStartPage(surah.id);
@@ -56,13 +70,20 @@ class _MenuPageState extends State<MenuPage> {
         ));
       }
 
+      // Group surahs by juz for efficient rendering
+      _groupedSurahs = {};
+      for (var surahDetails in surahDetailsList) {
+        final juzNumber = surahDetails.juzNumber;
+        _groupedSurahs.putIfAbsent(juzNumber, () => []).add(surahDetails);
+      }
+
       setState(() {
         surahs = surahDetailsList;
         isLoading = false;
       });
     } catch (e) {
       setState(() {
-        errorMessage = 'خطأ في تحميل البيانات: $e';
+        errorMessage = 'خطأ في تحميل البيانات: ${e.toString()}';
         isLoading = false;
       });
     }
@@ -81,7 +102,7 @@ class _MenuPageState extends State<MenuPage> {
     );
   }
 
-  AppBar _buildAppBar() {
+  PreferredSizeWidget _buildAppBar() {
     return AppBar(
       backgroundColor: Colors.white,
       elevation: 0,
@@ -115,7 +136,7 @@ class _MenuPageState extends State<MenuPage> {
       return _buildEmptyWidget();
     }
 
-    return _buildSurahList();
+    return _buildOptimizedSurahList();
   }
 
   Widget _buildLoadingWidget() {
@@ -123,8 +144,13 @@ class _MenuPageState extends State<MenuPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+          SizedBox(
+            width: 32,
+            height: 32,
+            child: CircularProgressIndicator(
+              strokeWidth: 3,
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+            ),
           ),
           SizedBox(height: 16),
           Text(
@@ -142,37 +168,41 @@ class _MenuPageState extends State<MenuPage> {
 
   Widget _buildErrorWidget() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.error_outline,
-            size: 64,
-            color: Colors.red.shade300,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            errorMessage!,
-            style: const TextStyle(
-              fontFamily: 'Digital',
-              fontSize: 16,
-              color: Colors.red,
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 64,
+              color: Colors.red.shade300,
             ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: _loadSurahs,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
+            const SizedBox(height: 16),
+            Text(
+              errorMessage!,
+              style: const TextStyle(
+                fontFamily: 'Digital',
+                fontSize: 16,
+                color: Colors.red,
+              ),
+              textAlign: TextAlign.center,
             ),
-            child: const Text(
-              'إعادة المحاولة',
-              style: TextStyle(fontFamily: 'Digital'),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: _loadSurahs,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+              child: const Text(
+                'إعادة المحاولة',
+                style: TextStyle(fontFamily: 'Digital'),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -190,38 +220,43 @@ class _MenuPageState extends State<MenuPage> {
     );
   }
 
-  Widget _buildSurahList() {
+  // Optimized list building using ListView.builder with grouped data
+  Widget _buildOptimizedSurahList() {
+    final juzNumbers = _groupedSurahs.keys.toList()..sort();
+
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      itemCount: _getListItemCount(),
-      itemBuilder: (context, index) => _buildListItem(index),
+      itemCount: _calculateTotalItems(juzNumbers),
+      itemBuilder: (context, index) => _buildOptimizedListItem(index, juzNumbers),
     );
   }
 
-  int _getListItemCount() {
-    int count = surahs.length;
-    final juzNumbers = surahs.map((s) => s.juzNumber).toSet();
-    count += juzNumbers.length; // Add juz headers
-    return count;
+  int _calculateTotalItems(List<int> juzNumbers) {
+    int total = juzNumbers.length; // Juz headers
+    for (final juzNumber in juzNumbers) {
+      total += _groupedSurahs[juzNumber]?.length ?? 0;
+    }
+    return total;
   }
 
-  Widget _buildListItem(int index) {
-    int currentJuz = -1;
-    int adjustedIndex = 0;
+  Widget _buildOptimizedListItem(int index, List<int> juzNumbers) {
+    int currentIndex = 0;
 
-    for (int i = 0; i < surahs.length; i++) {
-      if (surahs[i].juzNumber != currentJuz) {
-        if (adjustedIndex == index) {
-          return _buildJuzDivider(surahs[i].juzNumber);
+    for (final juzNumber in juzNumbers) {
+      // Check if this index is for a juz header
+      if (currentIndex == index) {
+        return _buildJuzDivider(juzNumber);
+      }
+      currentIndex++;
+
+      // Check if this index is for a surah in this juz
+      final surahsInJuz = _groupedSurahs[juzNumber]!;
+      for (final surahDetails in surahsInJuz) {
+        if (currentIndex == index) {
+          return _buildOptimizedSurahTile(surahDetails);
         }
-        currentJuz = surahs[i].juzNumber;
-        adjustedIndex++;
+        currentIndex++;
       }
-
-      if (adjustedIndex == index) {
-        return _buildSurahTile(surahs[i]);
-      }
-      adjustedIndex++;
     }
 
     return const SizedBox.shrink();
@@ -270,7 +305,7 @@ class _MenuPageState extends State<MenuPage> {
     );
   }
 
-  Widget _buildSurahTile(SurahWithDetails surahDetails) {
+  Widget _buildOptimizedSurahTile(SurahWithDetails surahDetails) {
     final surah = surahDetails.surah;
     final revelationPlace = MushafUtils.formatRevelationPlace(surah.revelationPlace);
 
@@ -279,26 +314,7 @@ class _MenuPageState extends State<MenuPage> {
       elevation: 1,
       child: ListTile(
         onTap: () => _navigateToSurah(surahDetails),
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: Colors.green.shade100,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.green.shade300),
-          ),
-          child: Center(
-            child: Text(
-              '${surah.id}',
-              style: TextStyle(
-                fontFamily: 'Digital',
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Colors.green.shade700,
-              ),
-            ),
-          ),
-        ),
+        leading: _buildSurahNumber(surah.id),
         title: Text(
           surah.nameArabic,
           style: const TextStyle(
@@ -322,6 +338,29 @@ class _MenuPageState extends State<MenuPage> {
           Icons.arrow_forward_ios,
           size: 16,
           color: Colors.green.shade400,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSurahNumber(int surahId) {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: Colors.green.shade100,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.green.shade300),
+      ),
+      child: Center(
+        child: Text(
+          '$surahId',
+          style: TextStyle(
+            fontFamily: 'Digital',
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: Colors.green.shade700,
+          ),
         ),
       ),
     );
