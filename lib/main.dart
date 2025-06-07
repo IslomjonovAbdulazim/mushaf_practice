@@ -1,4 +1,4 @@
-// lib/main.dart - Updated with tap controllers and RTL navigation
+// lib/main.dart - Simple sliding controls display only
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mushaf_practice/database.dart';
@@ -42,23 +42,43 @@ class MushafController extends StatefulWidget {
   State<MushafController> createState() => _MushafControllerState();
 }
 
-class _MushafControllerState extends State<MushafController> {
+class _MushafControllerState extends State<MushafController>
+    with TickerProviderStateMixin {
   late PageController _pageController;
-  int _currentPage = 600; // Display page number (1-604)
-  final int _totalPages = 604;
+  late AnimationController _animationController;
+  late Animation<Offset> _topSlideAnimation;
+  late Animation<Offset> _bottomSlideAnimation;
+
+  int _currentPage = 600;
   bool _showControls = false;
 
   @override
   void initState() {
     super.initState();
-    // Start from the correct page index (600 - 1 = 599)
     _pageController = PageController(initialPage: _currentPage - 1);
+
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 150),
+      vsync: this,
+    );
+
+    _topSlideAnimation = Tween<Offset>(
+      begin: const Offset(0.0, -1.0),
+      end: Offset.zero,
+    ).animate(_animationController);
+
+    _bottomSlideAnimation = Tween<Offset>(
+      begin: const Offset(0.0, 1.0),
+      end: Offset.zero,
+    ).animate(_animationController);
+
     _setFullScreen();
   }
 
   @override
   void dispose() {
     _pageController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -71,7 +91,6 @@ class _MushafControllerState extends State<MushafController> {
 
   void _onPageChanged(int index) {
     setState(() {
-      // Direct mapping: index 0 = page 1, index 599 = page 600
       _currentPage = index + 1;
     });
   }
@@ -80,26 +99,12 @@ class _MushafControllerState extends State<MushafController> {
     setState(() {
       _showControls = !_showControls;
     });
-  }
 
-  void _goToPage() {
-    // TODO: Implement go to page functionality
-    print('Go to page tapped');
-  }
-
-  void _showBookmarks() {
-    // TODO: Implement bookmarks functionality
-    print('Bookmarks tapped');
-  }
-
-  void _showSettings() {
-    // TODO: Implement settings functionality
-    print('Settings tapped');
-  }
-
-  void _showSearch() {
-    // TODO: Implement search functionality
-    print('Search tapped');
+    if (_showControls) {
+      _animationController.forward();
+    } else {
+      _animationController.reverse();
+    }
   }
 
   @override
@@ -110,95 +115,130 @@ class _MushafControllerState extends State<MushafController> {
         onTap: _toggleControls,
         child: Stack(
           children: [
-            // Main PageView with custom RTL navigation
+            // Main PageView
             PageView.builder(
               reverse: true,
               controller: _pageController,
               onPageChanged: _onPageChanged,
-              itemCount: _totalPages,
-              scrollDirection: Axis.horizontal,
+              itemCount: 604,
               itemBuilder: (context, index) {
-                // Direct mapping: show actual page numbers
                 int actualPageNumber = index + 1;
                 return Transform(
                   alignment: Alignment.center,
-                  transform: Matrix4.identity()..scale(-1.0, 1.0), // Flip horizontally
+                  transform: Matrix4.identity()..scale(-1.0, 1.0),
                   child: Transform(
                     alignment: Alignment.center,
-                    transform: Matrix4.identity()..scale(-1.0, 1.0), // Flip back the content
+                    transform: Matrix4.identity()..scale(-1.0, 1.0),
                     child: MushafPage(pageNumber: actualPageNumber),
                   ),
                 );
               },
             ),
 
-            // Control overlay
-            if (_showControls)
-              Container(
-                color: Colors.black.withOpacity(0.3),
-                child: Column(
-                  children: [
-                    // Top controls
-                    SafeArea(
-                      bottom: false,
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            _buildControlButton(
-                              icon: Icons.bookmark,
-                              label: 'المرجعيات',
-                              onTap: _showBookmarks,
-                            ),
-                            _buildControlButton(
-                              icon: Icons.search,
-                              label: 'البحث',
-                              onTap: _showSearch,
-                            ),
-                            _buildControlButton(
-                              icon: Icons.format_list_numbered,
-                              label: 'اذهب إلى',
-                              onTap: _goToPage,
-                            ),
-                            _buildControlButton(
-                              icon: Icons.settings,
-                              label: 'الإعدادات',
-                              onTap: _showSettings,
-                            ),
-                          ],
+            if (_showControls) Container(color: Colors.black.withOpacity(0.2)),
+
+            // Top controls - Menu and Settings
+            SlideTransition(
+              position: _topSlideAnimation,
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: Container(
+                  width: double.infinity,
+                  color: Colors.white.withOpacity(0.95),
+                  child: SafeArea(
+                    bottom: false,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        IconButton(
+                          onPressed: () {},
+                          icon: Icon(
+                            Icons.menu,
+                            color: Colors.green.shade700,
+                            size: 28,
+                          ),
                         ),
+                        IconButton(
+                          onPressed: () {},
+                          icon: Icon(
+                            Icons.settings,
+                            color: Colors.green.shade700,
+                            size: 28,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // Bottom controls
+            SlideTransition(
+              position: _bottomSlideAnimation,
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(25),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Reciter button
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                            child: Text(
+                              'عبد الباسط',
+                              style: TextStyle(
+                                fontFamily: 'Digital',
+                                fontSize: 12,
+                                color: Colors.green.shade800,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Play button
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade600,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.play_arrow,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-
-                    const Spacer(),
-
-                    // Bottom page info
-                    SafeArea(
-                      top: false,
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                    SizedBox(height: 10),
+                    Container(
+                      width: double.infinity,
+                      color: Colors.white.withOpacity(0.95),
+                      child: SafeArea(
+                        top: false,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 10,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.9),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                'صفحة $_currentPage من $_totalPages',
-                                style: const TextStyle(
-                                  fontFamily: 'Digital',
-                                  fontSize: 16,
-                                  color: Colors.black87,
-                                ),
-                                textDirection: TextDirection.rtl,
-                              ),
+                            Slider(
+                              value: _currentPage.toDouble(),
+                              min: 1,
+                              max: 604,
+                              activeColor: Colors.green.shade600,
+                              inactiveColor: Colors.green.shade200,
+                              onChanged: (value) {},
                             ),
                           ],
                         ),
@@ -207,49 +247,6 @@ class _MushafControllerState extends State<MushafController> {
                   ],
                 ),
               ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildControlButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.9),
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 24,
-              color: Colors.green.shade700,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontFamily: 'Digital',
-                fontSize: 12,
-                color: Colors.grey.shade800,
-              ),
-              textDirection: TextDirection.rtl,
             ),
           ],
         ),
