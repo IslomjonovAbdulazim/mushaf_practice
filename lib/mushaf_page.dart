@@ -1,4 +1,4 @@
-// lib/mushaf_page.dart - Simple Mushaf page display
+// lib/mushaf_page.dart - Simple Mushaf page display with reduced padding
 import 'package:flutter/material.dart';
 import 'package:mushaf_practice/database.dart';
 import 'package:mushaf_practice/models.dart';
@@ -87,27 +87,30 @@ class MushafPageContent extends StatelessWidget {
       body: SafeArea(
         child: Stack(
           children: [
-            // Main text content
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 50, 20, 40),
-              child: SingleChildScrollView(
-                child: Column(
-                  children: lines.map<Widget>((lineData) {
-                    final PageModel line = lineData['line'];
-                    final List<UthmaniModel> words = List<UthmaniModel>.from(
-                      lineData['words'],
-                    );
-                    return _buildLine(line, words);
-                  }).toList(),
+            // Main text content - centered with minimal padding
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 30, 10, 30),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: lines.map<Widget>((lineData) {
+                      final PageModel line = lineData['line'];
+                      final List<UthmaniModel> words = List<UthmaniModel>.from(
+                        lineData['words'],
+                      );
+                      return _buildLine(line, words);
+                    }).toList(),
+                  ),
                 ),
               ),
             ),
 
             // Header with surah name (left) and juz number (right)
             Positioned(
-              top: 15,
-              left: 20,
-              right: 20,
+              top: 8,
+              left: 8,
+              right: 8,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -137,9 +140,9 @@ class MushafPageContent extends StatelessWidget {
               ),
             ),
 
-            // Simple page number at bottom
+            // Page number at bottom center
             Positioned(
-              bottom: 15,
+              bottom: 8,
               left: 0,
               right: 0,
               child: Text(
