@@ -1,283 +1,276 @@
+// lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:mushaf_practice/models.dart';
-import 'package:mushaf_practice/simple_database.dart';
+import 'package:mushaf_practice/enhanced_database.dart';
+import 'package:mushaf_practice/enhanced_mushaf_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MushafApp());
+
+  // Initialize databases on app start
+  try {
+    await EnhancedDatabase.initializeDatabases();
+    print('Databases initialized successfully');
+  } catch (e) {
+    print('Error initializing databases: $e');
+  }
+
+  runApp(const EnhancedMushafApp());
 }
 
-class MushafApp extends StatelessWidget {
-  const MushafApp({Key? key}) : super(key: key);
+class EnhancedMushafApp extends StatelessWidget {
+  const EnhancedMushafApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Mushaf Reader',
+      title: 'Enhanced Mushaf Reader',
       theme: ThemeData(
         primarySwatch: Colors.green,
-        fontFamily: 'Digital', // Default to Me font
+        fontFamily: 'Digital',
+        scaffoldBackgroundColor: Colors.white,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black,
+          elevation: 0,
+        ),
+        // Customize page transition for smoother navigation
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: {
+            TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          },
+        ),
       ),
-      home: const MushafPageController(initialPage: 1),
+      home: const EnhancedMushafPageController(initialPage: 1),
     );
   }
 }
 
-class MushafPageController extends StatefulWidget {
+class EnhancedMushafPageController extends StatefulWidget {
   final int initialPage;
   final int totalPages;
 
-  const MushafPageController({
+  const EnhancedMushafPageController({
     Key? key,
     this.initialPage = 1,
     this.totalPages = 604,
   }) : super(key: key);
 
   @override
-  State<MushafPageController> createState() => _MushafPageControllerState();
+  State<EnhancedMushafPageController> createState() => _EnhancedMushafPageControllerState();
 }
 
-class _MushafPageControllerState extends State<MushafPageController> {
+class _EnhancedMushafPageControllerState extends State<EnhancedMushafPageController>
+    with WidgetsBindingObserver {
   late PageController _pageController;
   late int _currentPage;
-  final Map<int, Widget> _pageCache = {};
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     _currentPage = widget.initialPage;
     _pageController = PageController(initialPage: widget.initialPage - 1);
+
+    // Set immersive mode for full-screen reading experience
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+
+    // Add observer to handle app lifecycle
+    WidgetsBinding.instance.addObserver(this);
+
+    // Preload pages around initial page
+    _preloadPages(_currentPage);
   }
 
   @override
   void dispose() {
     _pageController.dispose();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.resumed:
+      // Restore immersive mode when app is resumed
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+        break;
+      case AppLifecycleState.paused:
+      // Clear some cache when app is paused to free memory
+        EnhancedDatabase.clearCache();
+        break;
+      default:
+        break;
+    }
   }
 
   void _onPageChanged(int index) {
     setState(() {
       _currentPage = index + 1;
     });
+
+    // Preload pages around current page for smooth navigation
+    _preloadPages(_currentPage);
+  }
+
+  void _preloadPages(int centerPage) {
+    // Preload pages in background without blocking UI
+    Future.microtask(() {
+      EnhancedDatabase.preloadPagesAround(centerPage, range: 3);
+    });
+  }
+
+  // Navigate to specific page
+  void _goToPage(int pageNumber) {
+    if (pageNumber >= 1 && pageNumber <= widget.totalPages) {
+      _pageController.animateToPage(
+        pageNumber - 1,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  // Show page navigation dialog
+  void _showPageNavigationDialog() {
+    final TextEditingController controller = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text(
+            'Go to Page',
+            style: TextStyle(fontFamily: 'Digital'),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: controller,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Page Number (1-${widget.totalPages})',
+                  border: const OutlineInputBorder(),
+                ),
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Current page: $_currentPage',
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final pageNumber = int.tryParse(controller.text);
+                if (pageNumber != null &&
+                    pageNumber >= 1 &&
+                    pageNumber <= widget.totalPages) {
+                  Navigator.of(context).pop();
+                  _goToPage(pageNumber);
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Please enter a valid page number (1-${widget.totalPages})',
+                      ),
+                      backgroundColor: Colors.red.shade400,
+                    ),
+                  );
+                }
+              },
+              child: const Text('Go'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: PageView.builder(
-        controller: _pageController,
-        onPageChanged: _onPageChanged,
-        itemCount: widget.totalPages,
-        itemBuilder: (context, index) {
-          final pageNumber = index + 1;
-          return SimpleMushafPage(pageNumber: pageNumber);
-        },
+      body: GestureDetector(
+        // Double tap to show page navigation
+        onDoubleTap: _showPageNavigationDialog,
+        child: PageView.builder(
+          controller: _pageController,
+          onPageChanged: _onPageChanged,
+          itemCount: widget.totalPages,
+          itemBuilder: (context, index) {
+            final pageNumber = index + 1;
+            return EnhancedMushafPage(pageNumber: pageNumber);
+          },
+        ),
+      ),
+
+      // Floating action button for quick navigation (optional)
+      floatingActionButton: _buildFloatingActionButton(),
+      floatingActionButtonLocation: FloatingActionButtonLocation.miniEndFloat,
+    );
+  }
+
+  Widget? _buildFloatingActionButton() {
+    // Only show FAB on debug mode or for demonstration
+    return null; // Remove this line to enable FAB
+
+    /* Uncomment to enable floating action button
+    return FloatingActionButton.small(
+      onPressed: _showPageNavigationDialog,
+      backgroundColor: Colors.green.shade600,
+      child: const Icon(
+        Icons.search,
+        color: Colors.white,
+        size: 20,
       ),
     );
+    */
   }
 }
 
-class SimpleMushafPage extends StatelessWidget {
-  final int pageNumber;
-
-  const SimpleMushafPage({Key? key, required this.pageNumber})
-    : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<Map<String, dynamic>>(
-      future: SimpleDatabase.getCompletePage(pageNumber),
-      builder: (context, snapshot) {
-        if (snapshot.hasData) {
-          return SimpleMushafContent(pageData: snapshot.data!);
-        }
-        return const Center(
-          child: CircularProgressIndicator(color: Colors.green),
-        );
-      },
-    );
-  }
-}
-
-class SimpleMushafContent extends StatelessWidget {
-  final Map<String, dynamic> pageData;
-
-  // Simple regex for Arabic numbers
-  static final RegExp arabicNumbers = RegExp(r'^[٠-٩۰-۹]+$');
-
-  const SimpleMushafContent({Key? key, required this.pageData})
-    : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    final lines = pageData['lines'] as List;
-
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-        child: SingleChildScrollView(
-          child: Column(
-            children: lines.map<Widget>((lineData) {
-              final PageModel line = lineData['line'];
-              final List<UthmaniModel> words = List<UthmaniModel>.from(
-                lineData['words'],
-              );
-              return _buildLine(context, line, words);
-            }).toList(),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLine(
-    BuildContext context,
-    PageModel line,
-    List<UthmaniModel> words,
-  ) {
-    // Handle special line types
-    if (line.lineType == 'basmallah') {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Center(
-          child: Text(
-            'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ',
-            style: _getTextStyle(context, false, isBasmallah: true),
-            textDirection: TextDirection.rtl,
-          ),
-        ),
-      );
-    }
-
-    // Regular line with words
-    if (words.isNotEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3),
-        child: _buildLineAlignment(context, line, words),
-      );
-    }
-
-    return const SizedBox(height: 8);
-  }
-
-  Widget _buildLineAlignment(
-    BuildContext context,
-    PageModel line,
-    List<UthmaniModel> words,
-  ) {
-    if (line.isCentered) {
-      // Center the words
-      return Center(
-        child: Wrap(
-          textDirection: TextDirection.rtl,
-          children: words.map((word) => _buildWord(context, word, true)).toList(),
-        ),
-      );
-    } else {
-      // Justify the words to fill the line - distribute entire words evenly
-      return Row(
-        textDirection: TextDirection.rtl,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: _buildJustifiedWords(context, words),
+// Extension for additional utility methods
+extension PageControllerExtension on _EnhancedMushafPageControllerState {
+  // Quick navigation methods
+  void nextPage() {
+    if (_currentPage < widget.totalPages) {
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
       );
     }
   }
 
-  List<Widget> _buildJustifiedWords(
-    BuildContext context,
-    List<UthmaniModel> words,
-  ) {
-    if (words.length == 1) {
-      // Single word - align to right
-      return [
-        Align(
-          alignment: Alignment.centerRight,
-          child: _buildWord(context, words.first),
-        ),
-      ];
-    }
-
-    // Multiple words - distribute entire words evenly across the line
-    return words
-        .map(
-          (word) => Center(
-            child: Text(
-              word.text,
-              style: _getTextStyle(context, arabicNumbers.hasMatch(word.text)),
-              textDirection: TextDirection.rtl,
-            ),
-          ),
-        )
-        .toList();
-  }
-
-  Widget _buildWord(
-    BuildContext context,
-    UthmaniModel word, [
-    bool center = false,
-  ]) {
-    final isNumber = arabicNumbers.hasMatch(word.text);
-
-    return Text(
-      "${word.text}${center ? "  " : ""}",
-      style: _getTextStyle(context, isNumber),
-    );
-  }
-
-  TextStyle _getTextStyle(
-    BuildContext context,
-    bool isArabicNumber, {
-    bool isBasmallah = false,
-  }) {
-    // Get responsive font sizes based on screen width
-    final screenWidth = MediaQuery.of(context).size.width;
-    final fontSize = _getResponsiveFontSize(screenWidth);
-
-    if (isArabicNumber) {
-      // Use Uthmani for Arabic numbers
-      return TextStyle(
-        fontFamily: 'Uthmani',
-        fontSize: fontSize.number,
-        height: 1.8,
-        color: Colors.black,
-        letterSpacing: 0,
-        wordSpacing: 0,
-      );
-    } else {
-      // Use Me for everything else
-      return TextStyle(
-        fontFamily: 'Digital',
-        fontSize: isBasmallah ? fontSize.basmallah : fontSize.text,
-        height: 1.8,
-        color: Colors.black,
-        fontWeight: isBasmallah ? FontWeight.w500 : FontWeight.w500,
-        letterSpacing: 0,
-        wordSpacing: 0,
+  void previousPage() {
+    if (_currentPage > 1) {
+      _pageController.previousPage(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
       );
     }
   }
 
-  // Calculate responsive font sizes based on screen width
-  ({double text, double number, double basmallah}) _getResponsiveFontSize(
-    double screenWidth,
-  ) {
-    if (screenWidth >= 768) {
-      // Tablet/Large screens
-      return (text: 18.0, number: 19.0, basmallah: 20.0);
-    } else if (screenWidth >= 400) {
-      // Medium phones
-      return (text: 16.0, number: 17.0, basmallah: 18.0);
-    } else if (screenWidth >= 350) {
-      // Regular phones
-      return (text: 15.0, number: 15.0, basmallah: 16.0);
-    } else {
-      // Small phones
-      return (text: 13.0, number: 13.0, basmallah: 15.0);
-    }
+  void firstPage() {
+    _goToPage(1);
+  }
+
+  void lastPage() {
+    _goToPage(widget.totalPages);
   }
 }
