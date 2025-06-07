@@ -1,163 +1,127 @@
-// lib/mushaf_page.dart - Updated with correct page number positioning
+// lib/widgets/mushaf_page.dart - Clean mushaf page widget
 import 'package:flutter/material.dart';
-import 'package:mushaf_practice/database.dart';
 import 'package:mushaf_practice/models.dart';
+import 'package:mushaf_practice/services/data_service.dart';
 
 class MushafPage extends StatelessWidget {
   final int pageNumber;
 
   const MushafPage({Key? key, required this.pageNumber}) : super(key: key);
 
-  // Simple juz calculation based on page number
-  int _getJuzNumber(int pageNumber) {
-    if (pageNumber <= 22) return 1;
-    if (pageNumber <= 42) return 2;
-    if (pageNumber <= 62) return 3;
-    if (pageNumber <= 82) return 4;
-    if (pageNumber <= 102) return 5;
-    if (pageNumber <= 122) return 6;
-    if (pageNumber <= 142) return 7;
-    if (pageNumber <= 162) return 8;
-    if (pageNumber <= 182) return 9;
-    if (pageNumber <= 202) return 10;
-    if (pageNumber <= 222) return 11;
-    if (pageNumber <= 242) return 12;
-    if (pageNumber <= 262) return 13;
-    if (pageNumber <= 282) return 14;
-    if (pageNumber <= 302) return 15;
-    if (pageNumber <= 322) return 16;
-    if (pageNumber <= 342) return 17;
-    if (pageNumber <= 362) return 18;
-    if (pageNumber <= 382) return 19;
-    if (pageNumber <= 402) return 20;
-    if (pageNumber <= 422) return 21;
-    if (pageNumber <= 442) return 22;
-    if (pageNumber <= 462) return 23;
-    if (pageNumber <= 482) return 24;
-    if (pageNumber <= 502) return 25;
-    if (pageNumber <= 522) return 26;
-    if (pageNumber <= 542) return 27;
-    if (pageNumber <= 562) return 28;
-    if (pageNumber <= 582) return 29;
-    return 30; // Juz 30 (last juz)
-  }
-
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Map<String, dynamic>>(
-      future: DatabaseManager.getCompletePageData(pageNumber),
+      future: DataService.getCompletePageData(pageNumber),
       builder: (context, snapshot) {
         if (snapshot.hasData) {
-          return MushafPageContent(
-            pageData: snapshot.data!,
-            juzNumber: _getJuzNumber(pageNumber),
-          );
+          return MushafPageContent(pageData: snapshot.data!);
         } else if (snapshot.hasError) {
-          return Center(
-            child: Text(
-              'خطأ في تحميل الصفحة $pageNumber',
-              style: const TextStyle(fontSize: 16, fontFamily: 'Digital'),
-            ),
-          );
+          return _buildErrorWidget();
         }
         return const Center(child: CircularProgressIndicator());
       },
+    );
+  }
+
+  Widget _buildErrorWidget() {
+    return Center(
+      child: Text(
+        'خطأ في تحميل الصفحة $pageNumber',
+        style: const TextStyle(
+          fontSize: 16,
+          fontFamily: 'Digital',
+          color: Colors.red,
+        ),
+      ),
     );
   }
 }
 
 class MushafPageContent extends StatelessWidget {
   final Map<String, dynamic> pageData;
-  final int juzNumber;
 
-  const MushafPageContent({
-    Key? key,
-    required this.pageData,
-    required this.juzNumber,
-  }) : super(key: key);
+  const MushafPageContent({Key? key, required this.pageData}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final lines = pageData['lines'] as List;
-    final int pageNumber = pageData['pageNumber'] as int;
-    final String surahName = pageData['surahName'] as String;
-
-    // Determine if page is odd or even for positioning
-    final bool isOddPage = pageNumber % 2 == 1;
+    final pageNumber = pageData['pageNumber'] as int;
+    final surahName = pageData['surahName'] as String;
+    final isOddPage = pageNumber % 2 == 1;
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Stack(
           children: [
-            // Main text content - centered with minimal padding
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(10, 30, 10, 30),
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: lines.map<Widget>((lineData) {
-                      final PageModel line = lineData['line'];
-                      final List<UthmaniModel> words = List<UthmaniModel>.from(
-                        lineData['words'],
-                      );
-                      return _buildLine(line, words);
-                    }).toList(),
-                  ),
-                ),
-              ),
-            ),
+            // Main content
+            _buildMainContent(lines),
 
-            // Header with surah name (left) and juz number (right)
-            Positioned(
-              top: 8,
-              left: 8,
-              right: 8,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Surah name on the left
-                  Text(
-                    surahName,
-                    style: const TextStyle(
-                      fontFamily: 'Digital',
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
-                    textDirection: TextDirection.rtl,
-                  ),
-                  // Juz number on the right
-                  Text(
-                    'الجزء $juzNumber',
-                    style: const TextStyle(
-                      fontFamily: 'Digital',
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
-                    textDirection: TextDirection.rtl,
-                  ),
-                ],
-              ),
-            ),
+            // Header
+            _buildHeader(surahName),
 
-            // Page number positioned based on odd/even
-            Positioned(
-              bottom: 8,
-              left: isOddPage ? null : 16, // Even pages on left
-              right: isOddPage ? 16 : null, // Odd pages on right
-              child: Text(
-                '$pageNumber',
-                style: const TextStyle(
-                  fontFamily: 'Digital',
-                  fontSize: 14,
-                  color: Colors.black54,
-                ),
-              ),
-            ),
+            // Page number
+            _buildPageNumber(pageNumber, isOddPage),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMainContent(List lines) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 50, 10, 40),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: lines.map<Widget>((lineData) {
+              final PageModel line = lineData['line'];
+              final List<UthmaniModel> words = List<UthmaniModel>.from(
+                lineData['words'],
+              );
+              return _buildLine(line, words);
+            }).toList(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(String surahName) {
+    return Positioned(
+      top: 8,
+      left: 16,
+      right: 16,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            surahName,
+            style: const TextStyle(
+              fontFamily: 'Digital',
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+            textDirection: TextDirection.rtl,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPageNumber(int pageNumber, bool isOddPage) {
+    return Positioned(
+      bottom: 8,
+      left: isOddPage ? null : 16,
+      right: isOddPage ? 16 : null,
+      child: Text(
+        '$pageNumber',
+        style: const TextStyle(
+          fontFamily: 'Digital',
+          fontSize: 14,
+          color: Colors.black54,
         ),
       ),
     );
@@ -165,21 +129,7 @@ class MushafPageContent extends StatelessWidget {
 
   Widget _buildLine(PageModel line, List<UthmaniModel> words) {
     if (line.lineType == 'basmallah') {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Center(
-          child: Text(
-            'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ',
-            style: const TextStyle(
-              fontFamily: 'Digital', // Using Digital font for basmallah
-              fontSize: 17,
-              fontWeight: FontWeight.w600,
-              color: Colors.black,
-            ),
-            textDirection: TextDirection.rtl,
-          ),
-        ),
-      );
+      return _buildBasmallah();
     }
 
     if (words.isEmpty) {
@@ -191,6 +141,24 @@ class MushafPageContent extends StatelessWidget {
       child: line.isCentered
           ? _buildCenteredLine(words)
           : _buildJustifiedLine(words),
+    );
+  }
+
+  Widget _buildBasmallah() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Center(
+        child: Text(
+          'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ',
+          style: const TextStyle(
+            fontFamily: 'Digital',
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: Colors.black,
+          ),
+          textDirection: TextDirection.rtl,
+        ),
+      ),
     );
   }
 
@@ -220,14 +188,12 @@ class MushafPageContent extends StatelessWidget {
   }
 
   Widget _buildWordText(UthmaniModel word) {
-    // Check if this word is an ayah number (simple detection)
-    bool isAyahNumber = _isAyahNumber(word.text);
+    final isAyahNumber = _isAyahNumber(word.text);
 
     return Text(
       word.text,
       style: TextStyle(
         fontFamily: isAyahNumber ? 'Uthmani' : 'Digital',
-        // Uthmani for ayah numbers, Digital for content
         fontSize: isAyahNumber ? 13 : 14.5,
         color: Colors.black,
         height: 1.8,
@@ -238,14 +204,10 @@ class MushafPageContent extends StatelessWidget {
     );
   }
 
-  // Simple ayah number detection
   bool _isAyahNumber(String text) {
-    // Ayah numbers are typically enclosed in specific Unicode characters
-    // This is a simple check - you might need to adjust based on your data
-    return text.contains('۝') || // End of ayah marker
-        text.contains('﴾') || // Ayah number brackets
+    return text.contains('۝') ||
+        text.contains('﴾') ||
         text.contains('﴿') ||
-        (text.length <= 3 &&
-            RegExp(r'^[٠-٩]+$').hasMatch(text)); // Short Arabic numerals
+        (text.length <= 3 && RegExp(r'^[٠-٩]+$').hasMatch(text));
   }
 }

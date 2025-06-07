@@ -1,4 +1,4 @@
-// lib/models.dart - Fixed models with proper constructors
+// lib/models.dart - Clean data models
 
 class UthmaniModel {
   final int id;
@@ -24,14 +24,6 @@ class UthmaniModel {
       word: json['word'] as int? ?? 0,
     );
   }
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-          other is UthmaniModel && id == other.id;
-
-  @override
-  int get hashCode => id.hashCode;
 }
 
 class PageModel {
@@ -53,16 +45,16 @@ class PageModel {
 
   factory PageModel.fromJson(Map<String, dynamic> json) {
     return PageModel(
-      pageNumber: _parseInt(json['page_number']),
-      lineNumber: _parseInt(json['line_number']),
+      pageNumber: _parseInteger(json['page_number']),
+      lineNumber: _parseInteger(json['line_number']),
       lineType: json['line_type']?.toString() ?? '',
-      isCentered: _parseInt(json['is_centered']) == 1,
-      firstWordId: _parseInt(json['first_word_id']),
-      lastWordId: _parseInt(json['last_word_id']),
+      isCentered: _parseInteger(json['is_centered']) == 1,
+      firstWordId: _parseInteger(json['first_word_id']),
+      lastWordId: _parseInteger(json['last_word_id']),
     );
   }
 
-  static int _parseInt(dynamic value) {
+  static int _parseInteger(dynamic value) {
     if (value == null) return 0;
     if (value is int) return value;
     if (value is String) return int.tryParse(value) ?? 0;
@@ -100,12 +92,27 @@ class SurahModel {
       bismillahPre: json['bismillah_pre'] as int? ?? 0,
     );
   }
+}
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-          other is SurahModel && id == other.id;
+class JuzModel {
+  final int juzNumber;
+  final String firstVerseKey;
+  final String lastVerseKey;
+  final int versesCount;
 
-  @override
-  int get hashCode => id.hashCode;
+  const JuzModel({
+    required this.juzNumber,
+    required this.firstVerseKey,
+    required this.lastVerseKey,
+    required this.versesCount,
+  });
+
+  factory JuzModel.fromJson(Map<String, dynamic> json) {
+    return JuzModel(
+      juzNumber: json['juz_number'] as int? ?? 0,
+      firstVerseKey: json['first_verse_key'] as String? ?? '',
+      lastVerseKey: json['last_verse_key'] as String? ?? '',
+      versesCount: json['verses_count'] as int? ?? 0,
+    );
+  }
 }
