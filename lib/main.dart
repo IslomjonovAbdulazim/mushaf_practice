@@ -248,8 +248,6 @@ class _MushafControllerState extends State<MushafController>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildQuickNavigation(),
-                  const SizedBox(height: 16),
                   _buildPageSlider(),
                 ],
               ),
@@ -260,88 +258,9 @@ class _MushafControllerState extends State<MushafController>
     );
   }
 
-  Widget _buildQuickNavigation() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        _buildNavButton(
-          icon: Icons.first_page,
-          label: 'البداية',
-          onPressed: () => _goToPage(1),
-        ),
-        _buildNavButton(
-          icon: Icons.remove,
-          label: '-10',
-          onPressed: () => _goToPage(_currentPage - 10),
-        ),
-        _buildNavButton(
-          icon: Icons.remove,
-          label: '-1',
-          onPressed: () => _goToPage(_currentPage - 1),
-        ),
-        _buildNavButton(
-          icon: Icons.add,
-          label: '+1',
-          onPressed: () => _goToPage(_currentPage + 1),
-        ),
-        _buildNavButton(
-          icon: Icons.add,
-          label: '+10',
-          onPressed: () => _goToPage(_currentPage + 10),
-        ),
-        _buildNavButton(
-          icon: Icons.last_page,
-          label: 'النهاية',
-          onPressed: () => _goToPage(604),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildNavButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onPressed,
-  }) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          onPressed: onPressed,
-          icon: Icon(
-            icon,
-            color: Colors.green.shade600,
-            size: 24,
-          ),
-          style: IconButton.styleFrom(
-            backgroundColor: Colors.green.shade50,
-            padding: const EdgeInsets.all(8),
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            fontFamily: 'Digital',
-            fontSize: 10,
-            color: Colors.green.shade600,
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildPageSlider() {
     return Column(
       children: [
-        Text(
-          'الصفحة $_currentPage من 604',
-          style: TextStyle(
-            fontFamily: 'Digital',
-            fontSize: 14,
-            color: Colors.green.shade700,
-          ),
-        ),
-        const SizedBox(height: 8),
         Slider(
           value: _currentPage.toDouble(),
           min: 1,
