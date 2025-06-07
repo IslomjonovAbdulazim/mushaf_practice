@@ -42,3 +42,7 @@ flutter:
     - family: Uthmani
       fonts:
         - asset: assets/fonts/UthmanicHafs_V22.ttf
+
+    - family: Digital
+      fonts:
+        - asset: assets/fonts/DigitalKhattV2.otf
