@@ -1,6 +1,7 @@
-// lib/services/data_service.dart - Service layer for data operations
+// lib/services/data_service.dart - Clean service layer for data operations
 import 'package:mushaf_practice/database.dart';
 import 'package:mushaf_practice/models.dart';
+import 'package:mushaf_practice/utils/helpers.dart';
 
 class DataService {
   // Cache for performance
@@ -11,12 +12,17 @@ class DataService {
 
   // Initialize cache
   static Future<void> initializeCache() async {
-    await _loadJuzNames();
-    await _loadAllSurahs();
+    try {
+      await _loadJuzData();
+      await _loadAllSurahs();
+      print('✅ Cache initialized successfully');
+    } catch (e) {
+      print('❌ Cache initialization failed: $e');
+    }
   }
 
-  // Load juz names from database
-  static Future<void> _loadJuzNames() async {
+  // Load juz data and names from database
+  static Future<void> _loadJuzData() async {
     try {
       final database = await DatabaseManager.juzDatabase;
       final result = await database.query('juz', orderBy: 'juz_number ASC');
@@ -28,22 +34,26 @@ class DataService {
         final juz = JuzModel.fromJson(row);
         _juzCache.add(juz);
 
-        // Extract juz name from first verse
-        final juzName = await _getJuzName(juz.juzNumber, juz.firstVerseKey);
+        // Get juz name from database
+        final juzName = await _getJuzNameFromDatabase(juz.juzNumber, juz.firstVerseKey);
         _juzNameCache[juz.juzNumber] = juzName;
       }
     } catch (e) {
-      print('Error loading juz names: $e');
+      print('Error loading juz data: $e');
+      // Initialize with traditional names as fallback
+      for (int i = 1; i <= 30; i++) {
+        _juzNameCache[i] = MushafUtils.getTraditionalJuzName(i);
+      }
     }
   }
 
-  // Get juz name from database
-  static Future<String> _getJuzName(int juzNumber, String firstVerseKey) async {
+  // Get juz name from database using first verse
+  static Future<String> _getJuzNameFromDatabase(int juzNumber, String firstVerseKey) async {
     try {
       final parts = firstVerseKey.split(':');
       if (parts.length >= 2) {
-        final surahId = int.tryParse(parts[0]) ?? 1;
-        final ayahNumber = int.tryParse(parts[1]) ?? 1;
+        final surahId = MushafUtils.safeParseInt(parts[0], defaultValue: 1);
+        final ayahNumber = MushafUtils.safeParseInt(parts[1], defaultValue: 1);
 
         final database = await DatabaseManager.scriptDatabase;
         final result = await database.query(
@@ -55,14 +65,19 @@ class DataService {
 
         if (result.isNotEmpty) {
           final word = UthmaniModel.fromJson(result.first);
-          return word.text;
+          // Clean the text and return first few words
+          final cleanText = word.text.trim();
+          if (cleanText.isNotEmpty) {
+            return cleanText;
+          }
         }
       }
     } catch (e) {
       print('Error getting juz name for juz $juzNumber: $e');
     }
 
-    return 'الجزء $juzNumber';
+    // Fallback to traditional name
+    return MushafUtils.getTraditionalJuzName(juzNumber);
   }
 
   // Load all surahs into cache
@@ -78,11 +93,14 @@ class DataService {
       }
     } catch (e) {
       print('Error loading surahs: $e');
+      throw e;
     }
   }
 
   // Get surah by ID
   static Future<SurahModel?> getSurahById(int surahId) async {
+    if (!MushafUtils.isValidSurahNumber(surahId)) return null;
+
     if (_surahCache.containsKey(surahId)) {
       return _surahCache[surahId];
     }
@@ -118,13 +136,15 @@ class DataService {
 
   // Get juz number for surah
   static Future<int> getJuzForSurah(int surahId) async {
+    if (!MushafUtils.isValidSurahNumber(surahId)) return 1;
+
     for (var juz in _juzCache) {
       final firstVerse = juz.firstVerseKey.split(':');
       final lastVerse = juz.lastVerseKey.split(':');
 
       if (firstVerse.length >= 2 && lastVerse.length >= 2) {
-        final firstSurah = int.tryParse(firstVerse[0]) ?? 0;
-        final lastSurah = int.tryParse(lastVerse[0]) ?? 0;
+        final firstSurah = MushafUtils.safeParseInt(firstVerse[0]);
+        final lastSurah = MushafUtils.safeParseInt(lastVerse[0]);
 
         if (surahId >= firstSurah && surahId <= lastSurah) {
           return juz.juzNumber;
@@ -132,17 +152,19 @@ class DataService {
       }
     }
 
-    // Fallback
+    // Fallback calculation
     return ((surahId - 1) ~/ 4) + 1;
   }
 
   // Get juz name
   static String getJuzName(int juzNumber) {
-    return _juzNameCache[juzNumber] ?? 'الجزء $juzNumber';
+    return _juzNameCache[juzNumber] ?? MushafUtils.getTraditionalJuzName(juzNumber);
   }
 
   // Get page layout
   static Future<List<PageModel>> getPageLayout(int pageNumber) async {
+    if (!MushafUtils.isValidPageNumber(pageNumber)) return [];
+
     if (_pageCache.containsKey(pageNumber)) {
       return _pageCache[pageNumber]!;
     }
@@ -158,8 +180,13 @@ class DataService {
 
       final pageLayout = result.map((row) => PageModel.fromJson(row)).toList();
 
-      // Cache result (limit cache size)
+      // Cache result (limit cache size to prevent memory issues)
       if (_pageCache.length < 50) {
+        _pageCache[pageNumber] = pageLayout;
+      } else {
+        // Remove oldest entry
+        final oldestKey = _pageCache.keys.first;
+        _pageCache.remove(oldestKey);
         _pageCache[pageNumber] = pageLayout;
       }
 
@@ -197,6 +224,7 @@ class DataService {
     final pageLayout = await getPageLayout(pageNumber);
     final lines = <Map<String, dynamic>>[];
 
+    // Process each line
     for (var line in pageLayout) {
       final words = await getWordsForLine(line);
       lines.add({
@@ -213,11 +241,14 @@ class DataService {
       'pageNumber': pageNumber,
       'lines': lines,
       'surahName': surah?.nameArabic ?? 'القرآن الكريم',
+      'juzNumber': MushafUtils.getJuzFromPage(pageNumber),
     };
   }
 
-  // Get surah for page
+  // Get surah for page using database queries
   static Future<int> getSurahForPage(int pageNumber) async {
+    if (!MushafUtils.isValidPageNumber(pageNumber)) return 1;
+
     try {
       final database = await DatabaseManager.mushafDatabase;
 
@@ -243,7 +274,7 @@ class DataService {
           );
 
           if (wordResult.isNotEmpty) {
-            return wordResult.first['surah'] as int? ?? 1;
+            return MushafUtils.safeParseInt(wordResult.first['surah'], defaultValue: 1);
           }
         }
       }
@@ -254,8 +285,10 @@ class DataService {
     return 1; // Default: Al-Fatiha
   }
 
-  // Get surah start page
+  // Get surah start page using database
   static Future<int> getSurahStartPage(int surahId) async {
+    if (!MushafUtils.isValidSurahNumber(surahId)) return 1;
+
     try {
       final scriptDb = await DatabaseManager.scriptDatabase;
 
@@ -280,7 +313,7 @@ class DataService {
         );
 
         if (pageResult.isNotEmpty) {
-          return pageResult.first['page_number'] as int;
+          return MushafUtils.safeParseInt(pageResult.first['page_number'], defaultValue: 1);
         }
       }
     } catch (e) {
@@ -290,11 +323,30 @@ class DataService {
     return 1; // Default
   }
 
-  // Clear cache
+  // Get all juz data
+  static Future<List<JuzModel>> getAllJuz() async {
+    if (_juzCache.isEmpty) {
+      await _loadJuzData();
+    }
+    return List.from(_juzCache);
+  }
+
+  // Clear cache for memory management
   static void clearCache() {
     _surahCache.clear();
     _pageCache.clear();
     _juzCache.clear();
     _juzNameCache.clear();
+    print('Cache cleared');
+  }
+
+  // Get cache status for debugging
+  static Map<String, int> getCacheStatus() {
+    return {
+      'surahs': _surahCache.length,
+      'pages': _pageCache.length,
+      'juz': _juzCache.length,
+      'juzNames': _juzNameCache.length,
+    };
   }
 }
