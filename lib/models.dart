@@ -1,4 +1,4 @@
-// lib/models.dart - Simplified models for basic Mushaf display
+// lib/models.dart - Fixed models with proper constructors
 
 class UthmaniModel {
   final int id;
@@ -75,16 +75,18 @@ class SurahModel {
   final String nameArabic;
   final String nameSimple;
   final int versesCount;
+  final int revelationOrder;
+  final String revelationPlace;
+  final int bismillahPre;
 
   const SurahModel({
     required this.id,
     required this.nameArabic,
     required this.nameSimple,
     required this.versesCount,
-    required int name,
-    required int revelationOrder,
-    required String revelationPlace,
-    required int bismillahPre,
+    required this.revelationOrder,
+    required this.revelationPlace,
+    required this.bismillahPre,
   });
 
   factory SurahModel.fromJson(Map<String, dynamic> json) {
@@ -93,10 +95,17 @@ class SurahModel {
       nameArabic: json['name_arabic'] as String? ?? '',
       nameSimple: json['name_simple'] as String? ?? '',
       versesCount: json['verses_count'] as int? ?? 0,
-      name: json['chapters'] as int? ?? 0,
       revelationOrder: json['revelation_order'] as int? ?? 0,
       revelationPlace: json['revelation_place'] as String? ?? '',
       bismillahPre: json['bismillah_pre'] as int? ?? 0,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+          other is SurahModel && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }
