@@ -1,4 +1,4 @@
-// lib/mushaf_page.dart - Simple Mushaf page display with reduced padding
+// lib/mushaf_page.dart - Updated with correct page number positioning
 import 'package:flutter/material.dart';
 import 'package:mushaf_practice/database.dart';
 import 'package:mushaf_practice/models.dart';
@@ -82,6 +82,9 @@ class MushafPageContent extends StatelessWidget {
     final int pageNumber = pageData['pageNumber'] as int;
     final String surahName = pageData['surahName'] as String;
 
+    // Determine if page is odd or even for positioning
+    final bool isOddPage = pageNumber % 2 == 1;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -140,11 +143,11 @@ class MushafPageContent extends StatelessWidget {
               ),
             ),
 
-            // Page number at bottom center
+            // Page number positioned based on odd/even
             Positioned(
               bottom: 8,
-              left: 0,
-              right: 0,
+              left: isOddPage ? null : 16, // Even pages on left
+              right: isOddPage ? 16 : null, // Odd pages on right
               child: Text(
                 '$pageNumber',
                 style: const TextStyle(
@@ -152,7 +155,6 @@ class MushafPageContent extends StatelessWidget {
                   fontSize: 14,
                   color: Colors.black54,
                 ),
-                textAlign: TextAlign.center,
               ),
             ),
           ],
