@@ -1,4 +1,4 @@
-// lib/widgets/mushaf_page.dart - Clean mushaf page widget
+// lib/widgets/mushaf_page.dart - Updated with theme awareness
 import 'package:flutter/material.dart';
 import 'package:mushaf_practice/models.dart';
 import 'package:mushaf_practice/services/data_service.dart';
@@ -16,21 +16,26 @@ class MushafPage extends StatelessWidget {
         if (snapshot.hasData) {
           return MushafPageContent(pageData: snapshot.data!);
         } else if (snapshot.hasError) {
-          return _buildErrorWidget();
+          return _buildErrorWidget(context);
         }
-        return const Center(child: CircularProgressIndicator());
+        return Center(
+          child: CircularProgressIndicator(
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        );
       },
     );
   }
 
-  Widget _buildErrorWidget() {
+  Widget _buildErrorWidget(BuildContext context) {
+    final theme = Theme.of(context);
     return Center(
       child: Text(
         'خطأ في تحميل الصفحة $pageNumber',
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 16,
           fontFamily: 'Digital',
-          color: Colors.red,
+          color: theme.colorScheme.error,
         ),
       ),
     );
@@ -44,31 +49,32 @@ class MushafPageContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final lines = pageData['lines'] as List;
     final pageNumber = pageData['pageNumber'] as int;
     final surahName = pageData['surahName'] as String;
     final isOddPage = pageNumber % 2 == 1;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.colorScheme.background,
       body: SafeArea(
         child: Stack(
           children: [
             // Main content
-            _buildMainContent(lines),
+            _buildMainContent(lines, theme),
 
             // Header
-            _buildHeader(surahName),
+            _buildHeader(surahName, theme),
 
             // Page number
-            _buildPageNumber(pageNumber, isOddPage),
+            _buildPageNumber(pageNumber, isOddPage, theme),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildMainContent(List lines) {
+  Widget _buildMainContent(List lines, ThemeData theme) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(10, 50, 10, 40),
@@ -80,7 +86,7 @@ class MushafPageContent extends StatelessWidget {
               final List<UthmaniModel> words = List<UthmaniModel>.from(
                 lineData['words'],
               );
-              return _buildLine(line, words);
+              return _buildLine(line, words, theme);
             }).toList(),
           ),
         ),
@@ -88,7 +94,7 @@ class MushafPageContent extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(String surahName) {
+  Widget _buildHeader(String surahName, ThemeData theme) {
     return Positioned(
       top: 8,
       left: 16,
@@ -98,11 +104,11 @@ class MushafPageContent extends StatelessWidget {
         children: [
           Text(
             surahName,
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: 'Digital',
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: Colors.black87,
+              color: theme.colorScheme.onBackground,
             ),
             textDirection: TextDirection.rtl,
           ),
@@ -111,25 +117,25 @@ class MushafPageContent extends StatelessWidget {
     );
   }
 
-  Widget _buildPageNumber(int pageNumber, bool isOddPage) {
+  Widget _buildPageNumber(int pageNumber, bool isOddPage, ThemeData theme) {
     return Positioned(
       bottom: 8,
       left: isOddPage ? null : 16,
       right: isOddPage ? 16 : null,
       child: Text(
         '$pageNumber',
-        style: const TextStyle(
+        style: TextStyle(
           fontFamily: 'Digital',
           fontSize: 14,
-          color: Colors.black54,
+          color: theme.colorScheme.onBackground.withOpacity(0.6),
         ),
       ),
     );
   }
 
-  Widget _buildLine(PageModel line, List<UthmaniModel> words) {
+  Widget _buildLine(PageModel line, List<UthmaniModel> words, ThemeData theme) {
     if (line.lineType == 'basmallah') {
-      return _buildBasmallah();
+      return _buildBasmallah(theme);
     }
 
     if (words.isEmpty) {
@@ -139,22 +145,22 @@ class MushafPageContent extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: line.isCentered
-          ? _buildCenteredLine(words)
-          : _buildJustifiedLine(words),
+          ? _buildCenteredLine(words, theme)
+          : _buildJustifiedLine(words, theme),
     );
   }
 
-  Widget _buildBasmallah() {
+  Widget _buildBasmallah(ThemeData theme) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16),
       child: Center(
         child: Text(
           'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ',
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'Digital',
             fontSize: 17,
             fontWeight: FontWeight.w600,
-            color: Colors.black,
+            color: theme.colorScheme.onBackground,
           ),
           textDirection: TextDirection.rtl,
         ),
@@ -162,32 +168,32 @@ class MushafPageContent extends StatelessWidget {
     );
   }
 
-  Widget _buildCenteredLine(List<UthmaniModel> words) {
+  Widget _buildCenteredLine(List<UthmaniModel> words, ThemeData theme) {
     return Center(
       child: Wrap(
         textDirection: TextDirection.rtl,
         spacing: 4,
-        children: words.map((word) => _buildWordText(word)).toList(),
+        children: words.map((word) => _buildWordText(word, theme)).toList(),
       ),
     );
   }
 
-  Widget _buildJustifiedLine(List<UthmaniModel> words) {
+  Widget _buildJustifiedLine(List<UthmaniModel> words, ThemeData theme) {
     if (words.length == 1) {
       return Align(
         alignment: Alignment.centerRight,
-        child: _buildWordText(words.first),
+        child: _buildWordText(words.first, theme),
       );
     }
 
     return Row(
       textDirection: TextDirection.rtl,
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: words.map((word) => _buildWordText(word)).toList(),
+      children: words.map((word) => _buildWordText(word, theme)).toList(),
     );
   }
 
-  Widget _buildWordText(UthmaniModel word) {
+  Widget _buildWordText(UthmaniModel word, ThemeData theme) {
     final isAyahNumber = _isAyahNumber(word.text);
 
     return Text(
@@ -195,7 +201,7 @@ class MushafPageContent extends StatelessWidget {
       style: TextStyle(
         fontFamily: isAyahNumber ? 'Uthmani' : 'Digital',
         fontSize: isAyahNumber ? 13 : 14.5,
-        color: Colors.black,
+        color: theme.colorScheme.onBackground,
         height: 1.8,
         letterSpacing: 0,
         wordSpacing: 0,
@@ -208,6 +214,7 @@ class MushafPageContent extends StatelessWidget {
     return text.contains('۝') ||
         text.contains('﴾') ||
         text.contains('﴿') ||
-        (text.length <= 3 && RegExp(r'^[٠-٩]+$').hasMatch(text));
-  }
+        (text.length <= 3 && RegExp(r'^[٠-٩]+').hasMatch(text));
+        }
 }
+
