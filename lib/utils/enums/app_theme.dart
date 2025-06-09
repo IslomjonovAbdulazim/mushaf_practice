@@ -1,4 +1,4 @@
-// lib/utils/enums/app_theme.dart
+// lib/utils/enums/app_theme.dart - English language version
 import 'package:flutter/material.dart';
 
 enum AppThemeEnum {
@@ -11,22 +11,22 @@ extension AppThemeExtension on AppThemeEnum {
   String get displayName {
     switch (this) {
       case AppThemeEnum.system:
-        return 'تلقائي حسب النظام';
+        return 'Automatic (System)';
       case AppThemeEnum.light:
-        return 'الوضع النهاري';
+        return 'Light Mode';
       case AppThemeEnum.dark:
-        return 'الوضع الليلي';
+        return 'Dark Mode';
     }
   }
 
   String get description {
     switch (this) {
       case AppThemeEnum.system:
-        return 'يتبع إعدادات نظام الجهاز';
+        return 'Follows your device settings';
       case AppThemeEnum.light:
-        return 'خلفية فاتحة مناسبة للقراءة في النهار';
+        return 'Bright background for daytime reading';
       case AppThemeEnum.dark:
-        return 'خلفية داكنة مناسبة للقراءة في الليل';
+        return 'Dark background for night reading';
     }
   }
 

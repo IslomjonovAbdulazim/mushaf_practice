@@ -1,42 +1,85 @@
-// lib/widgets/mushaf_page.dart - Updated with theme awareness
+// lib/widgets/mushaf_page.dart - Optimized with fixed surah name
 import 'package:flutter/material.dart';
 import 'package:mushaf_practice/models.dart';
 import 'package:mushaf_practice/services/data_service.dart';
 
 class MushafPage extends StatelessWidget {
   final int pageNumber;
+  final String? surahName; // Optional surah name from parent
 
-  const MushafPage({Key? key, required this.pageNumber}) : super(key: key);
+  const MushafPage({
+    Key? key,
+    required this.pageNumber,
+    this.surahName,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Map<String, dynamic>>(
-      future: DataService.getCompletePageData(pageNumber),
+      future: DataService.getCompletePageData(pageNumber), // Now super fast with caching!
       builder: (context, snapshot) {
         if (snapshot.hasData) {
-          return MushafPageContent(pageData: snapshot.data!);
+          return MushafPageContent(
+            pageData: snapshot.data!,
+            overrideSurahName: surahName, // Use surah name from parent if provided
+          );
         } else if (snapshot.hasError) {
           return _buildErrorWidget(context);
         }
-        return Center(
-          child: CircularProgressIndicator(
-            color: Theme.of(context).colorScheme.primary,
-          ),
-        );
+        return _buildLoadingWidget(context);
       },
+    );
+  }
+
+  Widget _buildLoadingWidget(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 30,
+            height: 30,
+            child: CircularProgressIndicator(
+              color: theme.colorScheme.primary,
+              strokeWidth: 2,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Loading Page $pageNumber...',
+            style: TextStyle(
+              fontSize: 14,
+              fontFamily: 'Digital',
+              color: theme.colorScheme.onBackground.withOpacity(0.6),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildErrorWidget(BuildContext context) {
     final theme = Theme.of(context);
     return Center(
-      child: Text(
-        'خطأ في تحميل الصفحة $pageNumber',
-        style: TextStyle(
-          fontSize: 16,
-          fontFamily: 'Digital',
-          color: theme.colorScheme.error,
-        ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.error_outline,
+            size: 48,
+            color: theme.colorScheme.error.withOpacity(0.6),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Error loading page $pageNumber',
+            style: TextStyle(
+              fontSize: 16,
+              fontFamily: 'Digital',
+              color: theme.colorScheme.error,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -44,15 +87,22 @@ class MushafPage extends StatelessWidget {
 
 class MushafPageContent extends StatelessWidget {
   final Map<String, dynamic> pageData;
+  final String? overrideSurahName;
 
-  const MushafPageContent({Key? key, required this.pageData}) : super(key: key);
+  const MushafPageContent({
+    Key? key,
+    required this.pageData,
+    this.overrideSurahName,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final lines = pageData['lines'] as List;
     final pageNumber = pageData['pageNumber'] as int;
-    final surahName = pageData['surahName'] as String;
+
+    // Use override surah name if provided, otherwise use from page data
+    final surahName = overrideSurahName ?? (pageData['surahName'] as String? ?? 'Holy Quran');
     final isOddPage = pageNumber % 2 == 1;
 
     return Scaffold(
@@ -63,8 +113,8 @@ class MushafPageContent extends StatelessWidget {
             // Main content
             _buildMainContent(lines, theme),
 
-            // Header
-            _buildHeader(surahName, theme),
+            // Header (only show if no override - controls will show it)
+            if (overrideSurahName == null) _buildHeader(surahName, theme),
 
             // Page number
             _buildPageNumber(pageNumber, isOddPage, theme),
@@ -77,7 +127,12 @@ class MushafPageContent extends StatelessWidget {
   Widget _buildMainContent(List lines, ThemeData theme) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 50, 10, 40),
+        padding: EdgeInsets.fromLTRB(
+            10,
+            overrideSurahName != null ? 10 : 50, // Less top padding if surah name shown in controls
+            10,
+            40
+        ),
         child: SingleChildScrollView(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -215,6 +270,5 @@ class MushafPageContent extends StatelessWidget {
         text.contains('﴾') ||
         text.contains('﴿') ||
         (text.length <= 3 && RegExp(r'^[٠-٩]+').hasMatch(text));
-        }
+  }
 }
-

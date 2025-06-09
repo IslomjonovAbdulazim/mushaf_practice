@@ -1,4 +1,4 @@
-// lib/pages/menu_page.dart - Updated with theme awareness
+// lib/pages/menu_page.dart - Authentic design with English language
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:mushaf_practice/models.dart';
@@ -45,16 +45,20 @@ class _MenuPageState extends State<MenuPage> {
       final allSurahs = await DataService.getAllSurahs();
       final surahDetailsList = <SurahWithDetails>[];
 
-      for (var surah in allSurahs) {
+      // Fast parallel loading
+      final futures = allSurahs.map((surah) async {
         final juzNumber = await DataService.getJuzForSurah(surah.id);
         final startPage = await DataService.getSurahStartPage(surah.id);
 
-        surahDetailsList.add(SurahWithDetails(
+        return SurahWithDetails(
           surah: surah,
           startPage: startPage,
           juzNumber: juzNumber,
-        ));
-      }
+        );
+      });
+
+      final results = await Future.wait(futures);
+      surahDetailsList.addAll(results);
 
       setState(() {
         surahs = surahDetailsList;
@@ -62,7 +66,7 @@ class _MenuPageState extends State<MenuPage> {
       });
     } catch (e) {
       setState(() {
-        errorMessage = 'خطأ في تحميل البيانات: $e';
+        errorMessage = 'Error loading chapters: $e';
         isLoading = false;
       });
     }
@@ -88,7 +92,7 @@ class _MenuPageState extends State<MenuPage> {
       backgroundColor: theme.colorScheme.background,
       elevation: 0,
       title: Text(
-        'فهرس السور',
+        'Index of Chapters',
         style: TextStyle(
           fontFamily: 'Digital',
           fontSize: 20,
@@ -130,7 +134,7 @@ class _MenuPageState extends State<MenuPage> {
           ),
           const SizedBox(height: 16),
           Text(
-            'جاري تحميل السور...',
+            'Loading chapters...',
             style: TextStyle(
               fontFamily: 'Digital',
               fontSize: 16,
@@ -170,7 +174,7 @@ class _MenuPageState extends State<MenuPage> {
               foregroundColor: theme.colorScheme.onPrimary,
             ),
             child: const Text(
-              'إعادة المحاولة',
+              'Retry',
               style: TextStyle(fontFamily: 'Digital'),
             ),
           ),
@@ -182,7 +186,7 @@ class _MenuPageState extends State<MenuPage> {
   Widget _buildEmptyWidget(ThemeData theme) {
     return Center(
       child: Text(
-        'لا توجد سور متاحة',
+        'No chapters available',
         style: TextStyle(
           fontFamily: 'Digital',
           fontSize: 16,
@@ -193,10 +197,87 @@ class _MenuPageState extends State<MenuPage> {
   }
 
   Widget _buildSurahList() {
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      itemCount: _getListItemCount(),
-      itemBuilder: (context, index) => _buildListItem(index),
+    return CustomScrollView(
+      slivers: [
+        // Header section
+        SliverToBoxAdapter(
+          child: _buildHeader(),
+        ),
+
+        // Chapters list grouped by Juz
+        SliverList(
+          delegate: SliverChildBuilderDelegate(
+                (context, index) => _buildListItem(index),
+            childCount: _getListItemCount(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeader() {
+    final theme = Theme.of(context);
+
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            theme.colorScheme.primary.withOpacity(0.1),
+            theme.colorScheme.primary.withOpacity(0.05),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.colorScheme.primary.withOpacity(0.2)),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.menu_book,
+            size: 40,
+            color: theme.colorScheme.primary,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Holy Quran',
+            style: TextStyle(
+              fontFamily: 'Digital',
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '114 Chapters • 604 Pages',
+            style: TextStyle(
+              fontFamily: 'Digital',
+              fontSize: 14,
+              color: theme.colorScheme.onBackground.withOpacity(0.7),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              'Tap any chapter to navigate',
+              style: TextStyle(
+                fontFamily: 'Digital',
+                fontSize: 12,
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -233,40 +314,55 @@ class _MenuPageState extends State<MenuPage> {
     final theme = Theme.of(context);
 
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
+      margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       child: Row(
         children: [
-          Expanded(
-            child: Divider(
-              color: theme.colorScheme.primary.withOpacity(0.6),
-              thickness: 1,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: theme.colorScheme.primary.withOpacity(0.3)),
-              ),
-              child: Text(
-                DataService.getJuzName(juzNumber),
-                style: TextStyle(
-                  fontFamily: 'Digital',
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.primary,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: theme.colorScheme.primary.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
-                textDirection: TextDirection.rtl,
-              ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.bookmark,
+                  size: 16,
+                  color: theme.colorScheme.onPrimary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Part $juzNumber',
+                  style: TextStyle(
+                    fontFamily: 'Digital',
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onPrimary,
+                  ),
+                ),
+              ],
             ),
           ),
+          const SizedBox(width: 12),
           Expanded(
-            child: Divider(
-              color: theme.colorScheme.primary.withOpacity(0.6),
-              thickness: 1,
+            child: Container(
+              height: 1,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    theme.colorScheme.primary.withOpacity(0.5),
+                    theme.colorScheme.primary.withOpacity(0.1),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
@@ -279,56 +375,158 @@ class _MenuPageState extends State<MenuPage> {
     final surah = surahDetails.surah;
     final revelationPlace = MushafUtils.formatRevelationPlace(surah.revelationPlace);
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      elevation: 1,
-      color: theme.colorScheme.surface,
-      child: ListTile(
-        onTap: () => _navigateToSurah(surahDetails),
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: theme.colorScheme.primary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: theme.colorScheme.primary.withOpacity(0.3)),
-          ),
-          child: Center(
-            child: Text(
-              '${surah.id}',
-              style: TextStyle(
-                fontFamily: 'Digital',
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.primary,
-              ),
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
+      child: Material(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        elevation: 2,
+        shadowColor: theme.colorScheme.primary.withOpacity(0.1),
+        child: InkWell(
+          onTap: () => _navigateToSurah(surahDetails),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                // Chapter number
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        theme.colorScheme.primary,
+                        theme.colorScheme.primary.withOpacity(0.8),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(25),
+                    boxShadow: [
+                      BoxShadow(
+                        color: theme.colorScheme.primary.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Text(
+                      '${surah.id}',
+                      style: TextStyle(
+                        fontFamily: 'Digital',
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(width: 16),
+
+                // Chapter info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Arabic name
+                      Text(
+                        surah.nameArabic,
+                        style: TextStyle(
+                          fontFamily: 'Digital',
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                        textDirection: TextDirection.rtl,
+                      ),
+
+                      const SizedBox(height: 4),
+
+                      // English name
+                      Text(
+                        surah.nameSimple,
+                        style: TextStyle(
+                          fontFamily: 'Digital',
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: theme.colorScheme.onSurface.withOpacity(0.8),
+                        ),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      // Details
+                      Row(
+                        children: [
+                          _buildInfoChip(
+                            icon: Icons.bookmark_outline,
+                            text: 'Page ${surahDetails.startPage}',
+                            theme: theme,
+                          ),
+                          const SizedBox(width: 8),
+                          _buildInfoChip(
+                            icon: Icons.format_list_numbered,
+                            text: '${surah.versesCount} verses',
+                            theme: theme,
+                          ),
+                          const SizedBox(width: 8),
+                          _buildInfoChip(
+                            icon: Icons.place,
+                            text: revelationPlace == 'مكية' ? 'Makkah' : 'Madinah',
+                            theme: theme,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Arrow
+                Icon(
+                  Icons.arrow_forward_ios,
+                  size: 16,
+                  color: theme.colorScheme.primary.withOpacity(0.7),
+                ),
+              ],
             ),
           ),
         ),
-        title: Text(
-          surah.nameArabic,
-          style: TextStyle(
-            fontFamily: 'Digital',
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: theme.colorScheme.onSurface,
+      ),
+    );
+  }
+
+  Widget _buildInfoChip({
+    required IconData icon,
+    required String text,
+    required ThemeData theme,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.colorScheme.primary.withOpacity(0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 12,
+            color: theme.colorScheme.primary,
           ),
-          textDirection: TextDirection.rtl,
-        ),
-        subtitle: Text(
-          '${MushafUtils.formatPageInfo(surahDetails.startPage)} • ${MushafUtils.formatVerseCount(surah.versesCount)} • $revelationPlace',
-          style: TextStyle(
-            fontFamily: 'Digital',
-            fontSize: 12,
-            color: theme.colorScheme.onSurface.withOpacity(0.6),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: TextStyle(
+              fontFamily: 'Digital',
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              color: theme.colorScheme.primary,
+            ),
           ),
-          textDirection: TextDirection.rtl,
-        ),
-        trailing: Icon(
-          Icons.arrow_forward_ios,
-          size: 16,
-          color: theme.colorScheme.primary.withOpacity(0.7),
-        ),
+        ],
       ),
     );
   }

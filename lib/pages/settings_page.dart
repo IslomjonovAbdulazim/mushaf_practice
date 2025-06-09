@@ -1,4 +1,4 @@
-// lib/pages/settings_page.dart - Simple and reliable
+// lib/pages/settings_page.dart - English language version
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:mushaf_practice/controllers/theme_controller.dart';
@@ -20,7 +20,7 @@ class SettingsPage extends StatelessWidget {
   AppBar _buildAppBar() {
     return AppBar(
       title: const Text(
-        'الإعدادات',
+        'Settings',
         style: TextStyle(
           fontFamily: 'Digital',
           fontSize: 20,
@@ -41,11 +41,11 @@ class SettingsPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSectionTitle('المظهر والعرض'),
+          _buildSectionTitle('Appearance & Display'),
           const SizedBox(height: 16),
           _buildThemeSection(themeController),
           const SizedBox(height: 32),
-          _buildSectionTitle('حول التطبيق'),
+          _buildSectionTitle('About App'),
           const SizedBox(height: 16),
           _buildInfoSection(),
         ],
@@ -67,40 +67,59 @@ class SettingsPage extends StatelessWidget {
   Widget _buildThemeSection(ThemeController themeController) {
     return Card(
       child: Column(
-        children: AppThemeEnum.values.map((theme) {
-          final isLast = theme == AppThemeEnum.values.last;
-          return Column(
-            children: [
-              Obx(() => _buildThemeOption(
-                theme: theme,
-                isSelected: themeController.isSelected(theme),
-                onTap: () => themeController.updateTheme(theme),
-              )),
-              if (!isLast) const Divider(height: 1),
-            ],
-          );
-        }).toList(),
+        children: [
+          // System Theme Option (Default & Recommended)
+          Obx(() => _buildThemeOption(
+            title: 'Automatic (System)',
+            subtitle: 'Follows your device dark/light mode settings',
+            icon: Icons.brightness_auto,
+            isSelected: themeController.isSelected(AppThemeEnum.system),
+            onTap: () => themeController.updateTheme(AppThemeEnum.system),
+            isRecommended: true,
+          )),
+          const Divider(height: 1),
+
+          // Light Theme Option
+          Obx(() => _buildThemeOption(
+            title: 'Light Mode',
+            subtitle: 'Bright background suitable for daytime reading',
+            icon: Icons.light_mode,
+            isSelected: themeController.isSelected(AppThemeEnum.light),
+            onTap: () => themeController.updateTheme(AppThemeEnum.light),
+          )),
+          const Divider(height: 1),
+
+          // Dark Theme Option
+          Obx(() => _buildThemeOption(
+            title: 'Dark Mode',
+            subtitle: 'Dark background suitable for night reading',
+            icon: Icons.dark_mode,
+            isSelected: themeController.isSelected(AppThemeEnum.dark),
+            onTap: () => themeController.updateTheme(AppThemeEnum.dark),
+          )),
+        ],
       ),
     );
   }
 
   Widget _buildThemeOption({
-    required AppThemeEnum theme,
+    required String title,
+    required String subtitle,
+    required IconData icon,
     required bool isSelected,
     required VoidCallback onTap,
+    bool isRecommended = false,
   }) {
-    final isRecommended = theme == AppThemeEnum.system;
-
     return ListTile(
       leading: Icon(
-        theme.icon,
+        icon,
         color: isSelected ? Get.theme.colorScheme.primary : null,
       ),
       title: Row(
         children: [
           Expanded(
             child: Text(
-              theme.displayName,
+              title,
               style: TextStyle(
                 fontFamily: 'Digital',
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -119,7 +138,7 @@ class SettingsPage extends StatelessWidget {
                 ),
               ),
               child: Text(
-                'مُوصى',
+                'Recommended',
                 style: TextStyle(
                   fontFamily: 'Digital',
                   fontSize: 10,
@@ -131,7 +150,7 @@ class SettingsPage extends StatelessWidget {
         ],
       ),
       subtitle: Text(
-        theme.description,
+        subtitle,
         style: const TextStyle(
           fontFamily: 'Digital',
           fontSize: 12,
@@ -153,32 +172,38 @@ class SettingsPage extends StatelessWidget {
         children: [
           _buildInfoTile(
             icon: Icons.info_outline,
-            title: 'إصدار التطبيق',
+            title: 'App Version',
             subtitle: '1.0.0',
           ),
           const Divider(height: 1),
           _buildInfoTile(
             icon: Icons.book,
-            title: 'عدد الصفحات',
-            subtitle: '604 صفحة',
+            title: 'Total Pages',
+            subtitle: '604 pages',
           ),
           const Divider(height: 1),
           _buildInfoTile(
             icon: Icons.storage,
-            title: 'قواعد البيانات',
-            subtitle: 'النص العثماني + تخطيط المصحف',
+            title: 'Databases',
+            subtitle: 'Uthmani script + Mushaf layout',
           ),
           const Divider(height: 1),
           _buildInfoTile(
             icon: Icons.text_fields,
-            title: 'الخطوط المستخدمة',
+            title: 'Fonts Used',
             subtitle: 'Digital, Uthmani, Me Quran',
           ),
           const Divider(height: 1),
           _buildInfoTile(
             icon: Icons.brightness_auto,
-            title: 'المظهر الافتراضي',
-            subtitle: 'يتبع إعدادات النظام تلقائياً',
+            title: 'Default Theme',
+            subtitle: 'Automatically follows system settings',
+          ),
+          const Divider(height: 1),
+          _buildInfoTile(
+            icon: Icons.speed,
+            title: 'Performance',
+            subtitle: 'Heavy caching for instant page loading',
           ),
         ],
       ),

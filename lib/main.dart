@@ -1,4 +1,4 @@
-// lib/main.dart - Clean and simple like your working project
+// lib/main.dart - Fixed surah name tracking + performance optimizations
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -15,12 +15,14 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
+    print('🚀 Initializing Mushaf App...');
+
     // Initialize GetStorage for theme persistence
     await GetStorage.init();
 
-    // Initialize databases and cache
+    // Initialize databases and cache with heavy preloading
     await DatabaseManager.initializeDatabases();
-    await DataService.initializeCache();
+    await DataService.initializeCache(); // This now preloads everything!
 
     // Initialize theme controller
     Get.put(ThemeController());
@@ -43,12 +45,12 @@ class MushafApp extends StatelessWidget {
     return Obx(() {
       return GetMaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'المصحف',
+        title: 'Mushaf Practice',
 
         // Use our custom theme system
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
-        themeMode: themeController.themeMode, // This is the key!
+        themeMode: themeController.themeMode,
 
         // Custom transitions
         defaultTransition: Transition.rightToLeft,
@@ -90,12 +92,14 @@ class _MushafControllerState extends State<MushafController>
 
   int _currentPage = 1;
   bool _showControls = false;
+  String _currentSurahName = 'Holy Quran'; // Track surah name
 
   @override
   void initState() {
     super.initState();
     _setupControllers();
     _setFullScreen();
+    _updateSurahName(); // Initialize surah name
   }
 
   @override
@@ -141,6 +145,16 @@ class _MushafControllerState extends State<MushafController>
     setState(() {
       _currentPage = index + 1;
     });
+    _updateSurahName(); // Update surah name when page changes!
+  }
+
+  // Update surah name for current page
+  void _updateSurahName() {
+    // Use the fast lookup from optimized DataService
+    final surahName = DataService.getSurahNameForPage(_currentPage);
+    setState(() {
+      _currentSurahName = surahName;
+    });
   }
 
   void _toggleControls() {
@@ -162,6 +176,12 @@ class _MushafControllerState extends State<MushafController>
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
+
+      // Update page and surah name immediately for responsiveness
+      setState(() {
+        _currentPage = pageNumber;
+      });
+      _updateSurahName();
     }
   }
 
@@ -210,7 +230,10 @@ class _MushafControllerState extends State<MushafController>
           child: Transform(
             alignment: Alignment.center,
             transform: Matrix4.identity()..scale(-1.0, 1.0),
-            child: MushafPage(pageNumber: pageNumber),
+            child: MushafPage(
+              pageNumber: pageNumber,
+              surahName: pageNumber == _currentPage ? _currentSurahName : null, // Only provide surah name for current page
+            ),
           ),
         );
       },
@@ -248,13 +271,33 @@ class _MushafControllerState extends State<MushafController>
                       size: 28,
                     ),
                   ),
-                  Text(
-                    'صفحة $_currentPage',
-                    style: TextStyle(
-                      fontFamily: 'Digital',
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.primary,
+                  // Show current surah name and page
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _currentSurahName,
+                          style: TextStyle(
+                            fontFamily: 'Digital',
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.primary,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          'Page $_currentPage',
+                          style: TextStyle(
+                            fontFamily: 'Digital',
+                            fontSize: 12,
+                            color: theme.colorScheme.primary.withOpacity(0.7),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     ),
                   ),
                   IconButton(
@@ -306,6 +349,36 @@ class _MushafControllerState extends State<MushafController>
 
     return Column(
       children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '1',
+              style: TextStyle(
+                fontFamily: 'Digital',
+                fontSize: 12,
+                color: theme.colorScheme.primary.withOpacity(0.7),
+              ),
+            ),
+            Text(
+              'Page $_currentPage of 604',
+              style: TextStyle(
+                fontFamily: 'Digital',
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            Text(
+              '604',
+              style: TextStyle(
+                fontFamily: 'Digital',
+                fontSize: 12,
+                color: theme.colorScheme.primary.withOpacity(0.7),
+              ),
+            ),
+          ],
+        ),
         Slider(
           value: _currentPage.toDouble(),
           min: 1,
