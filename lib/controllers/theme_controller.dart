@@ -44,9 +44,10 @@ class ThemeController extends GetxController {
   }
 
   void _showThemeChangeFeedback(AppThemeEnum theme) {
+    Get.closeAllSnackbars();
     Get.snackbar(
-      'تم تغيير المظهر',
       theme.displayName,
+      theme.description,
       snackPosition: SnackPosition.BOTTOM,
       duration: const Duration(seconds: 2),
       backgroundColor: Get.theme.colorScheme.surface,

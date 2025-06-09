@@ -44,10 +44,6 @@ class SettingsPage extends StatelessWidget {
           _buildSectionTitle('Appearance & Display'),
           const SizedBox(height: 16),
           _buildThemeSection(themeController),
-          const SizedBox(height: 32),
-          _buildSectionTitle('About App'),
-          const SizedBox(height: 16),
-          _buildInfoSection(),
         ],
       ),
     );
@@ -166,71 +162,4 @@ class SettingsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoSection() {
-    return Card(
-      child: Column(
-        children: [
-          _buildInfoTile(
-            icon: Icons.info_outline,
-            title: 'App Version',
-            subtitle: '1.0.0',
-          ),
-          const Divider(height: 1),
-          _buildInfoTile(
-            icon: Icons.book,
-            title: 'Total Pages',
-            subtitle: '604 pages',
-          ),
-          const Divider(height: 1),
-          _buildInfoTile(
-            icon: Icons.storage,
-            title: 'Databases',
-            subtitle: 'Uthmani script + Mushaf layout',
-          ),
-          const Divider(height: 1),
-          _buildInfoTile(
-            icon: Icons.text_fields,
-            title: 'Fonts Used',
-            subtitle: 'Digital, Uthmani, Me Quran',
-          ),
-          const Divider(height: 1),
-          _buildInfoTile(
-            icon: Icons.brightness_auto,
-            title: 'Default Theme',
-            subtitle: 'Automatically follows system settings',
-          ),
-          const Divider(height: 1),
-          _buildInfoTile(
-            icon: Icons.speed,
-            title: 'Performance',
-            subtitle: 'Heavy caching for instant page loading',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoTile({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-  }) {
-    return ListTile(
-      leading: Icon(icon),
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontFamily: 'Digital',
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: const TextStyle(
-          fontFamily: 'Digital',
-          fontSize: 12,
-        ),
-      ),
-    );
-  }
 }

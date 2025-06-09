@@ -11,11 +11,11 @@ extension AppThemeExtension on AppThemeEnum {
   String get displayName {
     switch (this) {
       case AppThemeEnum.system:
-        return 'Automatic (System)';
+        return 'Auto theme enabled';
       case AppThemeEnum.light:
-        return 'Light Mode';
+        return 'Light theme enabled';
       case AppThemeEnum.dark:
-        return 'Dark Mode';
+        return 'Dark theme enabled';
     }
   }
 

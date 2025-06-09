@@ -1,28 +1,27 @@
-// lib/widgets/mushaf_page.dart - Optimized with fixed surah name
+// lib/widgets/mushaf_page.dart - Improved with surah/juz display and better caching
 import 'package:flutter/material.dart';
 import 'package:mushaf_practice/models.dart';
 import 'package:mushaf_practice/services/data_service.dart';
+import 'package:mushaf_practice/utils/helpers.dart';
 
 class MushafPage extends StatelessWidget {
   final int pageNumber;
-  final String? surahName; // Optional surah name from parent
 
   const MushafPage({
     Key? key,
     required this.pageNumber,
-    this.surahName,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    // Start preloading surrounding pages immediately
+    DataService.preloadAroundPage(pageNumber);
+
     return FutureBuilder<Map<String, dynamic>>(
-      future: DataService.getCompletePageData(pageNumber), // Now super fast with caching!
+      future: DataService.getCompletePageData(pageNumber),
       builder: (context, snapshot) {
         if (snapshot.hasData) {
-          return MushafPageContent(
-            pageData: snapshot.data!,
-            overrideSurahName: surahName, // Use surah name from parent if provided
-          );
+          return MushafPageContent(pageData: snapshot.data!);
         } else if (snapshot.hasError) {
           return _buildErrorWidget(context);
         }
@@ -33,53 +32,57 @@ class MushafPage extends StatelessWidget {
 
   Widget _buildLoadingWidget(BuildContext context) {
     final theme = Theme.of(context);
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 30,
-            height: 30,
-            child: CircularProgressIndicator(
-              color: theme.colorScheme.primary,
-              strokeWidth: 2,
+    return Container(
+      color: theme.colorScheme.background,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                color: theme.colorScheme.primary,
+                strokeWidth: 2,
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Loading Page $pageNumber...',
-            style: TextStyle(
-              fontSize: 14,
-              fontFamily: 'Digital',
-              color: theme.colorScheme.onBackground.withOpacity(0.6),
+            const SizedBox(height: 12),
+            Text(
+              'Page $pageNumber',
+              style: TextStyle(
+                fontSize: 12,
+                color: theme.colorScheme.onBackground.withOpacity(0.6),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildErrorWidget(BuildContext context) {
     final theme = Theme.of(context);
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.error_outline,
-            size: 48,
-            color: theme.colorScheme.error.withOpacity(0.6),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Error loading page $pageNumber',
-            style: TextStyle(
-              fontSize: 16,
-              fontFamily: 'Digital',
-              color: theme.colorScheme.error,
+    return Container(
+      color: theme.colorScheme.background,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 32,
+              color: theme.colorScheme.error.withOpacity(0.6),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              'Error loading page $pageNumber',
+              style: TextStyle(
+                fontSize: 14,
+                color: theme.colorScheme.error,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -87,12 +90,10 @@ class MushafPage extends StatelessWidget {
 
 class MushafPageContent extends StatelessWidget {
   final Map<String, dynamic> pageData;
-  final String? overrideSurahName;
 
   const MushafPageContent({
     Key? key,
     required this.pageData,
-    this.overrideSurahName,
   }) : super(key: key);
 
   @override
@@ -100,9 +101,8 @@ class MushafPageContent extends StatelessWidget {
     final theme = Theme.of(context);
     final lines = pageData['lines'] as List;
     final pageNumber = pageData['pageNumber'] as int;
-
-    // Use override surah name if provided, otherwise use from page data
-    final surahName = overrideSurahName ?? (pageData['surahName'] as String? ?? 'Holy Quran');
+    final surahName = pageData['surahName'] as String? ?? 'Holy Quran';
+    final juzNumber = pageData['juzNumber'] as int? ?? 1;
     final isOddPage = pageNumber % 2 == 1;
 
     return Scaffold(
@@ -113,10 +113,13 @@ class MushafPageContent extends StatelessWidget {
             // Main content
             _buildMainContent(lines, theme),
 
-            // Header (only show if no override - controls will show it)
-            if (overrideSurahName == null) _buildHeader(surahName, theme),
+            // Surah name (left side)
+            _buildSurahName(surahName, theme),
 
-            // Page number
+            // Juz number (right side)
+            _buildJuzNumber(juzNumber, theme),
+
+            // Page number (bottom)
             _buildPageNumber(pageNumber, isOddPage, theme),
           ],
         ),
@@ -127,12 +130,7 @@ class MushafPageContent extends StatelessWidget {
   Widget _buildMainContent(List lines, ThemeData theme) {
     return Center(
       child: Padding(
-        padding: EdgeInsets.fromLTRB(
-            10,
-            overrideSurahName != null ? 10 : 50, // Less top padding if surah name shown in controls
-            10,
-            40
-        ),
+        padding: const EdgeInsets.fromLTRB(10, 45, 10, 40), // More top padding for Arabic surah name
         child: SingleChildScrollView(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -149,25 +147,64 @@ class MushafPageContent extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(String surahName, ThemeData theme) {
+  Widget _buildSurahName(String surahName, ThemeData theme) {
     return Positioned(
       top: 8,
-      left: 16,
-      right: 16,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            surahName,
-            style: TextStyle(
-              fontFamily: 'Digital',
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: theme.colorScheme.onBackground,
-            ),
-            textDirection: TextDirection.rtl,
+      left: 12,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface.withOpacity(0.9),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: theme.colorScheme.primary.withOpacity(0.3),
           ),
-        ],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Text(
+          surahName,
+          style: TextStyle(
+            fontFamily: 'Digital', // Use Arabic-optimized font
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.primary,
+            height: 1.2,
+          ),
+          textDirection: TextDirection.rtl,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildJuzNumber(int juzNumber, ThemeData theme) {
+    return Positioned(
+      top: 8,
+      right: 12,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface.withOpacity(0.8),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: theme.colorScheme.primary.withOpacity(0.2),
+          ),
+        ),
+        child: Text(
+          'Juz $juzNumber',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: theme.colorScheme.primary,
+          ),
+        ),
       ),
     );
   }
@@ -180,9 +217,8 @@ class MushafPageContent extends StatelessWidget {
       child: Text(
         '$pageNumber',
         style: TextStyle(
-          fontFamily: 'Digital',
-          fontSize: 14,
-          color: theme.colorScheme.onBackground.withOpacity(0.6),
+          fontSize: 12,
+          color: theme.colorScheme.onBackground.withOpacity(0.5),
         ),
       ),
     );
@@ -212,8 +248,8 @@ class MushafPageContent extends StatelessWidget {
         child: Text(
           'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ',
           style: TextStyle(
-            fontFamily: 'Digital',
-            fontSize: 17,
+            fontSize: 20,
+            height: 1,
             fontWeight: FontWeight.w600,
             color: theme.colorScheme.onBackground,
           ),
@@ -255,9 +291,9 @@ class MushafPageContent extends StatelessWidget {
       word.text,
       style: TextStyle(
         fontFamily: isAyahNumber ? 'Uthmani' : 'Digital',
-        fontSize: isAyahNumber ? 13 : 14.5,
+        fontSize: isAyahNumber ? 18 : 17,
         color: theme.colorScheme.onBackground,
-        height: 1.8,
+        height: 2,
         letterSpacing: 0,
         wordSpacing: 0,
       ),
