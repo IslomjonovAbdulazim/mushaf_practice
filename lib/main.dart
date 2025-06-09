@@ -1,18 +1,30 @@
-// lib/main.dart - Clean main app
+// lib/main.dart - Clean and simple like your working project
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
+import 'package:mushaf_practice/controllers/theme_controller.dart';
 import 'package:mushaf_practice/database.dart';
 import 'package:mushaf_practice/pages/menu_page.dart';
+import 'package:mushaf_practice/pages/settings_page.dart';
 import 'package:mushaf_practice/services/data_service.dart';
+import 'package:mushaf_practice/theme/app_theme.dart';
 import 'package:mushaf_practice/widgets/mushaf_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
+    // Initialize GetStorage for theme persistence
+    await GetStorage.init();
+
+    // Initialize databases and cache
     await DatabaseManager.initializeDatabases();
     await DataService.initializeCache();
+
+    // Initialize theme controller
+    Get.put(ThemeController());
+
     print('✅ App initialized successfully');
   } catch (error) {
     print('❌ Initialization error: $error');
@@ -26,16 +38,39 @@ class MushafApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GetMaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'المصحف',
-      theme: ThemeData(
-        primarySwatch: Colors.green,
-        fontFamily: 'Digital',
-        scaffoldBackgroundColor: Colors.white,
-      ),
-      home: const MushafController(),
-    );
+    final ThemeController themeController = Get.find<ThemeController>();
+
+    return Obx(() {
+      return GetMaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'المصحف',
+
+        // Use our custom theme system
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: themeController.themeMode, // This is the key!
+
+        // Custom transitions
+        defaultTransition: Transition.rightToLeft,
+        transitionDuration: const Duration(milliseconds: 300),
+
+        home: const MushafController(),
+
+        // Custom route for settings
+        getPages: [
+          GetPage(
+            name: '/settings',
+            page: () => const SettingsPage(),
+            transition: Transition.rightToLeft,
+          ),
+          GetPage(
+            name: '/menu',
+            page: () => const MenuPage(),
+            transition: Transition.rightToLeft,
+          ),
+        ],
+      );
+    });
   }
 }
 
@@ -137,10 +172,16 @@ class _MushafControllerState extends State<MushafController>
     }
   }
 
+  void _openSettings() {
+    Get.to(() => const SettingsPage());
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.colorScheme.background,
       body: GestureDetector(
         onTap: _toggleControls,
         child: Stack(
@@ -183,13 +224,15 @@ class _MushafControllerState extends State<MushafController>
   }
 
   Widget _buildTopControls() {
+    final theme = Theme.of(context);
+
     return SlideTransition(
       position: _topSlideAnimation,
       child: Align(
         alignment: Alignment.topCenter,
         child: Container(
           width: double.infinity,
-          color: Colors.white.withOpacity(0.95),
+          color: theme.colorScheme.surface.withOpacity(0.95),
           child: SafeArea(
             bottom: false,
             child: Padding(
@@ -201,7 +244,7 @@ class _MushafControllerState extends State<MushafController>
                     onPressed: _openMenu,
                     icon: Icon(
                       Icons.menu,
-                      color: Colors.green.shade700,
+                      color: theme.colorScheme.primary,
                       size: 28,
                     ),
                   ),
@@ -211,16 +254,14 @@ class _MushafControllerState extends State<MushafController>
                       fontFamily: 'Digital',
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Colors.green.shade700,
+                      color: theme.colorScheme.primary,
                     ),
                   ),
                   IconButton(
-                    onPressed: () {
-                      // Settings functionality
-                    },
+                    onPressed: _openSettings,
                     icon: Icon(
                       Icons.settings,
-                      color: Colors.green.shade700,
+                      color: theme.colorScheme.primary,
                       size: 28,
                     ),
                   ),
@@ -234,13 +275,15 @@ class _MushafControllerState extends State<MushafController>
   }
 
   Widget _buildBottomControls() {
+    final theme = Theme.of(context);
+
     return SlideTransition(
       position: _bottomSlideAnimation,
       child: Align(
         alignment: Alignment.bottomCenter,
         child: Container(
           width: double.infinity,
-          color: Colors.white.withOpacity(0.95),
+          color: theme.colorScheme.surface.withOpacity(0.95),
           child: SafeArea(
             top: false,
             child: Padding(
@@ -259,6 +302,8 @@ class _MushafControllerState extends State<MushafController>
   }
 
   Widget _buildPageSlider() {
+    final theme = Theme.of(context);
+
     return Column(
       children: [
         Slider(
@@ -266,8 +311,8 @@ class _MushafControllerState extends State<MushafController>
           min: 1,
           max: 604,
           divisions: 603,
-          activeColor: Colors.green.shade600,
-          inactiveColor: Colors.green.shade200,
+          activeColor: theme.colorScheme.primary,
+          inactiveColor: theme.colorScheme.primary.withOpacity(0.3),
           onChanged: (value) {
             _goToPage(value.round());
           },
